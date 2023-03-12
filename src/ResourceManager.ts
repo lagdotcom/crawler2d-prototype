@@ -1,4 +1,4 @@
-import Atlas from "./Atlas";
+import Atlas from "./types/Atlas";
 
 export default class ResourceManager {
   promises: Map<string, Promise<unknown>>;

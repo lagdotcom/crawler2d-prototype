@@ -1,8 +1,8 @@
-import Dir from "../Dir";
-import World from "../World";
+import Dir from "../types/Dir";
+import World from "../types/World";
 import image from "../../res/atlas/minma1.png";
 import json from "../../res/atlas/minma1.json";
-import { xy } from "../geometry";
+import { xy } from "../tools/geometry";
 
 enum Id {
   White = 1,

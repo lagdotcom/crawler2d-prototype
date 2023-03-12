@@ -1,10 +1,10 @@
 // adapted from https://dungeoncrawlers.org/tools/dungeonrenderer/
 
-import Atlas, { AtlasLayer, AtlasTile } from "./Atlas";
+import Atlas, { AtlasLayer, AtlasTile } from "./types/Atlas";
 
-import Dir from "./Dir";
-import { WorldCell } from "./World";
-import getCanvasContext from "./getCanvasContext";
+import Dir from "./types/Dir";
+import { WorldCell } from "./types/World";
+import getCanvasContext from "./tools/getCanvasContext";
 
 export const tileTag = (
   id: number,

@@ -1,5 +1,5 @@
-import Dir from "./Dir";
-import XY from "./XY";
+import Dir from "../types/Dir";
+import XY from "../types/XY";
 
 export const xy = (x: number, y: number): XY => ({ x, y });
 

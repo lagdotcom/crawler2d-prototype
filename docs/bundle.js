@@ -40,7 +40,7 @@
     });
   };
 
-  // src/geometry.ts
+  // src/tools/geometry.ts
   var xy = (x, y) => ({ x, y });
   function addXY(a2, b2) {
     return { x: a2.x + b2.x, y: a2.y + b2.y };
@@ -53,7 +53,7 @@
     return (dir + clockwise + 4) % 4;
   }
 
-  // src/Dir.ts
+  // src/types/Dir.ts
   var Dir = /* @__PURE__ */ ((Dir2) => {
     Dir2[Dir2["N"] = 0] = "N";
     Dir2[Dir2["E"] = 1] = "E";
@@ -63,7 +63,7 @@
   })(Dir || {});
   var Dir_default = Dir;
 
-  // src/getCanvasContext.ts
+  // src/tools/getCanvasContext.ts
   function getCanvasContext(canvas, type, options) {
     const ctx = canvas.getContext(type, options);
     if (!ctx)
@@ -444,10 +444,10 @@
   };
 
   // res/atlas/minma1.png
-  var minma1_default = "./minma1-NLDVNWIY.png";
+  var minma1_default = "./minma1-VI5UXWCY.png";
 
   // res/atlas/minma1.json
-  var minma1_default2 = "./minma1-DB6ILSPL.json";
+  var minma1_default2 = "./minma1-6Z2CTON5.json";
 
   // src/data/testWorld.ts
   var _ = { floor: 1 /* White */, ceiling: 1 /* White */ };
@@ -493,7 +493,7 @@
       const wantHeight = 240;
       const ratioWidth = Math.floor(window.innerWidth / wantWidth);
       const ratioHeight = Math.floor(window.innerHeight / wantHeight);
-      const ratio = Math.min(ratioWidth, ratioHeight);
+      const ratio = Math.max(1, Math.min(ratioWidth, ratioHeight));
       const width = wantWidth * ratio;
       const height = wantHeight * ratio;
       container.style.width = `${width}px`;

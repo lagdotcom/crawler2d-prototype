@@ -18,7 +18,7 @@ function loadEngine(parent: HTMLElement) {
 
     const ratioWidth = Math.floor(window.innerWidth / wantWidth);
     const ratioHeight = Math.floor(window.innerHeight / wantHeight);
-    const ratio = Math.min(ratioWidth, ratioHeight);
+    const ratio = Math.max(1, Math.min(ratioWidth, ratioHeight));
 
     const width = wantWidth * ratio;
     const height = wantHeight * ratio;

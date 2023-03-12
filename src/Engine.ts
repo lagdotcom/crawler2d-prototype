@@ -1,13 +1,13 @@
-import { move, rotate, xy } from "./geometry";
+import { move, rotate, xy } from "./tools/geometry";
 
-import Dir from "./Dir";
+import Dir from "./types/Dir";
 import DungeonRenderer from "./DungeonRenderer";
 import ResourceManager from "./ResourceManager";
 import Soon from "./Soon";
-import World from "./World";
-import XY from "./XY";
+import World from "./types/World";
+import XY from "./types/XY";
 import clone from "nanoclone";
-import getCanvasContext from "./getCanvasContext";
+import getCanvasContext from "./tools/getCanvasContext";
 
 export default class Engine {
   ctx: CanvasRenderingContext2D;
