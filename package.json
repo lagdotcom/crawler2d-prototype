@@ -1,0 +1,28 @@
+{
+  "name": "test-dcrawl2d",
+  "version": "1.0.0",
+  "description": "Dungeon Crawler 2D engine test",
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node watch.mjs",
+    "tsc": "tsc --noEmit",
+    "lint": "eslint --fix src"
+  },
+  "dependencies": {
+    "nanoclone": "^1.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.0",
+    "@typescript-eslint/eslint-plugin": "^5.54.1",
+    "@typescript-eslint/parser": "^5.54.1",
+    "esbuild": "^0.17.11",
+    "eslint": "^8.36.0",
+    "eslint-config-prettier": "^8.7.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-promise": "^6.1.1",
+    "prettier": "^2.8.4",
+    "typescript": "^4.9.5",
+    "watch": "^1.0.2"
+  }
+}
