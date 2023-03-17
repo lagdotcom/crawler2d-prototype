@@ -26,7 +26,7 @@ export default class Engine {
     this.position = xy(0, 0);
     this.ready = false;
     this.res = new ResourceManager();
-    this.drawSoon = new Soon(this.render.bind(this));
+    this.drawSoon = new Soon(this.render);
 
     canvas.addEventListener("keyup", (e) => {
       if (e.key === "ArrowLeft") this.turn(-1);
@@ -69,14 +69,14 @@ export default class Engine {
     this.drawSoon.schedule();
   }
 
-  private render() {
+  render = () => {
     if (!this.ready) {
       this.draw();
       return;
     }
 
     this.renderWorld();
-  }
+  };
 
   renderWorld() {
     const { ctx, facing, position } = this;

@@ -5,4 +5,4 @@ import { context } from "esbuild";
 
 const result = await context(config);
 const serve = await result.serve({ servedir: "docs", port: 8080 });
-console.log("Serving:", serve);
+console.log(`Serving: http://${serve.host}:${serve.port}`);

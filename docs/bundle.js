@@ -303,15 +303,14 @@
   var Soon = class {
     constructor(callback) {
       this.callback = callback;
-      this.call = this.call.bind(this);
+      this.call = () => {
+        this.timeout = void 0;
+        this.callback();
+      };
     }
     schedule() {
       if (!this.timeout)
         this.timeout = requestAnimationFrame(this.call);
-    }
-    call() {
-      this.timeout = void 0;
-      this.callback();
     }
   };
 
@@ -364,12 +363,19 @@
   var Engine = class {
     constructor(canvas) {
       this.canvas = canvas;
+      this.render = () => {
+        if (!this.ready) {
+          this.draw();
+          return;
+        }
+        this.renderWorld();
+      };
       this.ctx = getCanvasContext(canvas, "2d");
       this.facing = Dir_default.N;
       this.position = xy(0, 0);
       this.ready = false;
       this.res = new ResourceManager();
-      this.drawSoon = new Soon(this.render.bind(this));
+      this.drawSoon = new Soon(this.render);
       canvas.addEventListener("keyup", (e) => {
         if (e.key === "ArrowLeft")
           this.turn(-1);
@@ -409,13 +415,6 @@
     }
     draw() {
       this.drawSoon.schedule();
-    }
-    render() {
-      if (!this.ready) {
-        this.draw();
-        return;
-      }
-      this.renderWorld();
     }
     renderWorld() {
       const { ctx, facing, position } = this;
