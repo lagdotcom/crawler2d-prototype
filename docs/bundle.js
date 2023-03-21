@@ -256,6 +256,37 @@
     }
   };
 
+  // src/MinimapRenderer.ts
+  var MinimapRenderer = class {
+    constructor(g, tileSize = 10, size = xy(2, 2), offset = xy(100, 100)) {
+      this.g = g;
+      this.tileSize = tileSize;
+      this.size = size;
+      this.offset = offset;
+    }
+    render() {
+      const { tileSize, size, offset } = this;
+      const { ctx, facing, position } = this.g;
+      const { width, height } = this.g.canvas;
+      const dx = width - offset.x;
+      const dy = height - offset.y;
+      let xx = 0;
+      let yy = dy;
+      for (let y = -size.y; y <= size.y; y++) {
+        xx = dx - tileSize;
+        for (let x = -size.x; x <= size.x; x++) {
+          xx += tileSize;
+          const cell = this.g.getCell({ x: x + position.x, y: y + position.y });
+          if (!cell)
+            continue;
+          ctx.fillStyle = cell.solid ? "black" : "white";
+          ctx.fillRect(xx, yy, tileSize, tileSize);
+        }
+        yy += tileSize;
+      }
+    }
+  };
+
   // src/ResourceManager.ts
   var ResourceManager = class {
     constructor() {
@@ -373,6 +404,7 @@
       this.ctx = getCanvasContext(canvas, "2d");
       this.facing = Dir_default.N;
       this.position = xy(0, 0);
+      this.worldSize = xy(0, 0);
       this.ready = false;
       this.res = new ResourceManager();
       this.drawSoon = new Soon(this.render);
@@ -391,26 +423,30 @@
       return __async(this, null, function* () {
         this.ready = false;
         this.world = src_default(w);
+        this.worldSize = xy(this.world.cells[0].length, this.world.cells.length);
         this.position = w.start;
         this.facing = w.facing;
         const [atlas, image] = yield Promise.all([
           this.res.loadAtlas(w.atlas.json),
           this.res.loadImage(w.atlas.image)
         ]);
-        this.renderer = new DungeonRenderer(
+        this.dungeon = new DungeonRenderer(
           this.canvas,
           this.ctx,
           atlas,
           image,
           this.world.cells
         );
-        yield this.renderer.generateImages();
+        this.minimap = new MinimapRenderer(this);
+        yield this.dungeon.generateImages();
         this.ready = true;
-        return this.renderer.render();
+        return this.draw();
       });
     }
     getCell(pos) {
       var _a;
+      if (pos.x < 0 || pos.x >= this.worldSize.x || pos.y < 0 || pos.y >= this.worldSize.y)
+        return void 0;
       return (_a = this.world) == null ? void 0 : _a.cells[pos.y][pos.x];
     }
     draw() {
@@ -420,8 +456,9 @@
       const { ctx, facing, position } = this;
       const { width, height } = this.canvas;
       ctx.clearRect(0, 0, width, height);
-      this.renderer.player = { x: position.x, y: position.y, dir: facing };
-      this.renderer.render();
+      this.dungeon.player = { x: position.x, y: position.y, dir: facing };
+      this.dungeon.render();
+      this.minimap.render();
     }
     canMove(dir) {
       var _a;

@@ -2,6 +2,7 @@ import { move, rotate, xy } from "./tools/geometry";
 
 import Dir from "./types/Dir";
 import DungeonRenderer from "./DungeonRenderer";
+import MinimapRenderer from "./MinimapRenderer";
 import ResourceManager from "./ResourceManager";
 import Soon from "./Soon";
 import World from "./types/World";
@@ -15,15 +16,18 @@ export default class Engine {
   facing: Dir;
   position: XY;
   ready: boolean;
-  renderer?: DungeonRenderer;
+  dungeon?: DungeonRenderer;
+  minimap?: MinimapRenderer;
   res: ResourceManager;
   world?: World;
+  worldSize: XY;
 
   constructor(public canvas: HTMLCanvasElement) {
     this.ctx = getCanvasContext(canvas, "2d");
 
     this.facing = Dir.N;
     this.position = xy(0, 0);
+    this.worldSize = xy(0, 0);
     this.ready = false;
     this.res = new ResourceManager();
     this.drawSoon = new Soon(this.render);
@@ -40,6 +44,7 @@ export default class Engine {
     this.ready = false;
 
     this.world = clone(w);
+    this.worldSize = xy(this.world.cells[0].length, this.world.cells.length);
     this.position = w.start;
     this.facing = w.facing;
 
@@ -47,21 +52,30 @@ export default class Engine {
       this.res.loadAtlas(w.atlas.json),
       this.res.loadImage(w.atlas.image),
     ]);
-    this.renderer = new DungeonRenderer(
+    this.dungeon = new DungeonRenderer(
       this.canvas,
       this.ctx,
       atlas,
       image,
       this.world.cells
     );
+    this.minimap = new MinimapRenderer(this);
 
-    await this.renderer.generateImages();
+    await this.dungeon.generateImages();
 
     this.ready = true;
-    return this.renderer.render();
+    return this.draw();
   }
 
   getCell(pos: XY) {
+    if (
+      pos.x < 0 ||
+      pos.x >= this.worldSize.x ||
+      pos.y < 0 ||
+      pos.y >= this.worldSize.y
+    )
+      return;
+
     return this.world?.cells[pos.y][pos.x];
   }
 
@@ -83,8 +97,9 @@ export default class Engine {
     const { width, height } = this.canvas;
 
     ctx.clearRect(0, 0, width, height);
-    this.renderer!.player = { x: position.x, y: position.y, dir: facing };
-    this.renderer!.render();
+    this.dungeon!.player = { x: position.x, y: position.y, dir: facing };
+    this.dungeon!.render();
+    this.minimap!.render();
   }
 
   canMove(dir: Dir) {
