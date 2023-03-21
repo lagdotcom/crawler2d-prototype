@@ -3,8 +3,10 @@
 import Atlas, { AtlasLayer, AtlasTile } from "./types/Atlas";
 
 import Dir from "./types/Dir";
-import { WorldCell } from "./types/World";
+import Engine from "./Engine";
 import getCanvasContext from "./tools/getCanvasContext";
+import getFieldOfView from "./fov";
+import { rotate } from "./tools/geometry";
 
 export const tileTag = (
   id: number,
@@ -14,21 +16,13 @@ export const tileTag = (
 
 export default class DungeonRenderer {
   imageData: Map<string, AtlasTile>;
-  mapSize: number;
-  player: { x: number; y: number; dir: Dir };
 
   constructor(
-    public canvas: HTMLCanvasElement,
-    public ctx: CanvasRenderingContext2D,
+    public g: Engine,
     public dungeon: Atlas,
-    public atlasImage: HTMLImageElement,
-    public map: WorldCell[][]
+    public atlasImage: HTMLImageElement
   ) {
     this.imageData = new Map();
-
-    // TODO actually load this from map
-    this.mapSize = 16;
-    this.player = { x: 1, y: 2, dir: 0 };
   }
 
   generateImages() {
@@ -102,130 +96,85 @@ export default class DungeonRenderer {
   }
 
   project(x: number, z: number): [x: number, y: number] {
-    switch (this.player.dir) {
-      case 0:
-        return [this.player.x + x, this.player.y + z];
-      case 1:
-        return [this.player.x - z, this.player.y + x];
-      case 2:
-        return [this.player.x - x, this.player.y - z];
-      case 3:
-        return [this.player.x + z, this.player.y - x];
+    const { facing, position } = this.g;
+
+    switch (facing) {
+      case Dir.N:
+        return [position.x + x, position.y + z];
+      case Dir.E:
+        return [position.x - z, position.y + x];
+      case Dir.S:
+        return [position.x - x, position.y - z];
+      case Dir.W:
+        return [position.x + z, position.y - x];
 
       default:
-        throw new Error(`Invalid direction: ${this.player.dir}`);
+        throw new Error(`Invalid direction: ${facing}`);
     }
   }
 
   draw(result: AtlasTile) {
     const dx = result.screen.x - (result.flipped ? result.coords.w : 0);
     const dy = result.screen.y;
-    this.ctx.drawImage(result.image, dx, dy);
+    this.g.ctx.drawImage(result.image, dx, dy);
   }
 
   drawFront(result: AtlasTile, x: number) {
     const dx = result.screen.x + x * result.coords.fullWidth;
     const dy = result.screen.y;
-    this.ctx.drawImage(result.image, dx, dy);
+    this.g.ctx.drawImage(result.image, dx, dy);
   }
 
-  drawSides(z: number) {
-    for (let x = -(this.dungeon.width - 1); x <= this.dungeon.width - 1; x++) {
-      const [px, py] = this.project(x, z);
-
-      if (px >= 0 && py >= 0 && px < this.mapSize && py < this.mapSize) {
-        const cell = this.map[py][px];
-
-        if (cell.wall) {
-          const result = this.getImage(cell.wall, "side", x, z);
-          if (result) this.draw(result);
-        }
-
-        if (cell.decal) {
-          const result = this.getImage(cell.decal, "side", x, z);
-          if (result) this.draw(result);
-        }
-      }
-    }
+  drawImage(id: number, type: AtlasTile["type"], x: number, z: number) {
+    const result = this.getImage(id, type, x, z);
+    if (result) this.draw(result);
   }
 
-  drawFronts(z: number) {
-    for (let x = -(this.dungeon.width - 1); x <= this.dungeon.width - 1; x++) {
-      const [px, py] = this.project(x, z);
-
-      if (px >= 0 && py >= 0 && px < this.mapSize && py < this.mapSize) {
-        const cell = this.map[py][px];
-
-        if (cell.wall) {
-          const result = this.getImage(cell.wall, "front", 0, z);
-          if (result) this.drawFront(result, x);
-        }
-
-        if (cell.decal) {
-          const result = this.getImage(cell.decal, "front", 0, z);
-          if (result) this.drawFront(result, x);
-        }
-
-        if (cell.object) {
-          const result = this.getImage(cell.object, "object", 0, z);
-          if (result) this.drawFront(result, x);
-        }
-      }
-    }
-  }
-
-  drawFloor(z: number) {
-    for (let x = -(this.dungeon.width - 1); x <= this.dungeon.width - 1; x++) {
-      const [px, py] = this.project(x, z);
-
-      if (px >= 0 && py >= 0 && px < this.mapSize && py < this.mapSize) {
-        const cell = this.map[py][px];
-
-        if (cell.floor) {
-          const result = this.getImage(cell.floor, "floor", x, z);
-          if (result) this.draw(result);
-        }
-      }
-    }
-  }
-
-  drawCeiling(z: number) {
-    for (let x = -(this.dungeon.width - 1); x <= this.dungeon.width - 1; x++) {
-      const [px, py] = this.project(x, z);
-
-      if (px >= 0 && py >= 0 && px < this.mapSize && py < this.mapSize) {
-        const cell = this.map[py][px];
-
-        if (cell.ceiling) {
-          const result = this.getImage(cell.ceiling, "ceiling", x, z);
-          if (result) this.draw(result);
-        }
-      }
-    }
+  drawFrontImage(id: number, type: AtlasTile["type"], x: number, z: number) {
+    const result = this.getImage(id, type, 0, z);
+    if (result) this.drawFront(result, x);
   }
 
   cls() {
-    this.ctx.fillStyle = "black";
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.g.ctx.fillStyle = "black";
+    this.g.ctx.fillRect(0, 0, this.g.canvas.width, this.g.canvas.height);
   }
 
   render() {
     this.cls();
 
-    // draw ceiling
-    for (let z = -this.dungeon.depth; z <= 0; z++) {
-      this.drawCeiling(z);
-    }
+    const rightSide = rotate(this.g.facing, 1);
+    const leftSide = rotate(this.g.facing, 3);
 
-    // draw floor
-    for (let z = -this.dungeon.depth; z <= 0; z++) {
-      this.drawFloor(z);
-    }
+    // get list of tiles to draw
+    const tiles = getFieldOfView(
+      this.g,
+      this.dungeon.width,
+      this.dungeon.depth
+    );
+    for (const pos of tiles) {
+      const cell = this.g.getCell(pos.x, pos.y);
+      if (!cell) continue;
+      // console.log(pos, cell);
 
-    // draw wall, decal and object layers
-    for (let z = -this.dungeon.depth; z <= 0; z++) {
-      this.drawSides(z);
-      this.drawFronts(z);
+      const left = cell.sides[leftSide];
+      if (left?.wall) this.drawImage(left.wall, "side", pos.dx - 1, pos.dz);
+      if (left?.decal) this.drawImage(left.decal, "side", pos.dx - 1, pos.dz);
+
+      const right = cell.sides[rightSide];
+      if (right?.wall) this.drawImage(right.wall, "side", pos.dx + 1, pos.dz);
+      if (right?.decal) this.drawImage(right.decal, "side", pos.dx + 1, pos.dz);
+
+      const front = cell.sides[this.g.facing];
+      if (front?.wall)
+        this.drawFrontImage(front.wall, "front", pos.dx, pos.dz - 1);
+      if (front?.decal)
+        this.drawFrontImage(front.decal, "front", pos.dx, pos.dz - 1);
+
+      if (cell.ceiling) this.drawImage(cell.ceiling, "ceiling", pos.dx, pos.dz);
+      if (cell.floor) this.drawImage(cell.floor, "floor", pos.dx, pos.dz);
+
+      // TODO object?
     }
   }
 }

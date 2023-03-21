@@ -1,4 +1,4 @@
-enum Dir {
+const enum Dir {
   N,
   E,
   S,

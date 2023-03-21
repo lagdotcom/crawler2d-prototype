@@ -1,5 +1,6 @@
 import Dir from "../types/Dir";
 import World from "../types/World";
+import convertWormTunnel from "../convertWormTunnel";
 import image from "../../res/atlas/minma1.png";
 import json from "../../res/atlas/minma1.json";
 import { xy } from "../tools/geometry";
@@ -10,12 +11,12 @@ enum Id {
 }
 
 const _ = { floor: Id.White, ceiling: Id.White };
-const a = { ..._, solid: true, wall: Id.White };
-const b = { ..._, solid: true, wall: Id.White, decal: Id.Door };
+const a = { wall: Id.White };
+const b = { wall: Id.White, decal: Id.Door };
 
 const testWorld: World = {
   atlas: { image, json },
-  cells: [
+  cells: convertWormTunnel([
     [a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a],
     [a, _, _, _, _, _, _, a, b, _, _, a, _, _, _, a],
     [a, _, a, a, a, a, _, a, a, a, _, a, _, a, a, a],
@@ -32,7 +33,7 @@ const testWorld: World = {
     [a, a, a, _, _, _, a, a, a, _, a, a, _, _, _, a],
     [a, _, _, _, a, _, _, a, _, _, _, _, _, a, _, a],
     [a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a],
-  ],
+  ]),
   start: xy(1, 2),
   facing: Dir.N,
 };

@@ -1,24 +1,5 @@
 "use strict";
 (() => {
-  var __defProp = Object.defineProperty;
-  var __defProps = Object.defineProperties;
-  var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
-  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
-  var __hasOwnProp = Object.prototype.hasOwnProperty;
-  var __propIsEnum = Object.prototype.propertyIsEnumerable;
-  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __spreadValues = (a2, b2) => {
-    for (var prop in b2 ||= {})
-      if (__hasOwnProp.call(b2, prop))
-        __defNormalProp(a2, prop, b2[prop]);
-    if (__getOwnPropSymbols)
-      for (var prop of __getOwnPropSymbols(b2)) {
-        if (__propIsEnum.call(b2, prop))
-          __defNormalProp(a2, prop, b2[prop]);
-      }
-    return a2;
-  };
-  var __spreadProps = (a2, b2) => __defProps(a2, __getOwnPropDescs(b2));
   var __async = (__this, __arguments, generator) => {
     return new Promise((resolve, reject) => {
       var fulfilled = (value) => {
@@ -40,19 +21,6 @@
     });
   };
 
-  // src/tools/geometry.ts
-  var xy = (x, y) => ({ x, y });
-  function addXY(a2, b2) {
-    return { x: a2.x + b2.x, y: a2.y + b2.y };
-  }
-  var displacements = [xy(0, -1), xy(1, 0), xy(0, 1), xy(-1, 0)];
-  function move(pos, dir) {
-    return addXY(pos, displacements[dir]);
-  }
-  function rotate(dir, clockwise) {
-    return (dir + clockwise + 4) % 4;
-  }
-
   // src/types/Dir.ts
   var Dir = /* @__PURE__ */ ((Dir2) => {
     Dir2[Dir2["N"] = 0] = "N";
@@ -63,6 +31,32 @@
   })(Dir || {});
   var Dir_default = Dir;
 
+  // src/tools/geometry.ts
+  var xy = (x, y) => ({ x, y });
+  function addXY(a, b) {
+    return { x: a.x + b.x, y: a.y + b.y };
+  }
+  var displacements = [xy(0, -1), xy(1, 0), xy(0, 1), xy(-1, 0)];
+  function move(pos, dir) {
+    return addXY(pos, displacements[dir]);
+  }
+  function rotate(dir, clockwise) {
+    return (dir + clockwise + 4) % 4;
+  }
+  function dirFromInitial(initial) {
+    switch (initial) {
+      case "E":
+        return Dir_default.E;
+      case "S":
+        return Dir_default.S;
+      case "W":
+        return Dir_default.W;
+      case "N":
+      default:
+        return Dir_default.N;
+    }
+  }
+
   // src/tools/getCanvasContext.ts
   function getCanvasContext(canvas, type, options) {
     const ctx = canvas.getContext(type, options);
@@ -71,18 +65,85 @@
     return ctx;
   }
 
+  // src/tools/xyTags.ts
+  function xyToTag(pos) {
+    return `${pos.x},${pos.y}`;
+  }
+
+  // src/fov.ts
+  var facingDisplacements = {
+    [Dir_default.E]: [0, 1, -1, 0],
+    [Dir_default.N]: [1, 0, 0, 1],
+    [Dir_default.S]: [-1, 0, 0, -1],
+    [Dir_default.W]: [0, -1, 1, 0]
+  };
+  function getDisplacement(from, to, facing) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const [a, b, c, d] = facingDisplacements[facing];
+    const x = dx * a + dy * b;
+    const y = dx * c + dy * d;
+    return [x, y];
+  }
+  var FovCalculator = class {
+    constructor(g) {
+      this.g = g;
+      this.entries = /* @__PURE__ */ new Map();
+    }
+    calculate(width, depth) {
+      const position = this.g.position;
+      this.propagate(position, width, depth);
+      return [...this.entries.values()].sort((a, b) => {
+        const zd = a.dz - b.dz;
+        if (zd)
+          return zd;
+        const xd = Math.abs(a.dx) - Math.abs(b.dx);
+        return -xd;
+      });
+    }
+    displacement(position) {
+      return getDisplacement(this.g.position, position, this.g.facing);
+    }
+    propagate(position, width, depth) {
+      if (width <= 0 || depth <= 0)
+        return;
+      const { g } = this;
+      const { facing } = g;
+      const tag = xyToTag(position);
+      if (this.entries.has(tag))
+        return;
+      const { x, y } = position;
+      const cell = g.getCell(x, y);
+      if (!cell)
+        return;
+      const [dx, dz] = this.displacement(position);
+      this.entries.set(tag, { x, y, dx, dz });
+      const leftDir = rotate(facing, 3);
+      const leftWall = cell.sides[leftDir];
+      if (!(leftWall == null ? void 0 : leftWall.wall))
+        this.propagate(move(position, leftDir), width - 1, depth);
+      const rightDir = rotate(facing, 1);
+      const rightWall = cell.sides[rightDir];
+      if (!(rightWall == null ? void 0 : rightWall.wall))
+        this.propagate(move(position, rightDir), width - 1, depth);
+      const forwardWall = cell.sides[facing];
+      if (!(forwardWall == null ? void 0 : forwardWall.wall))
+        this.propagate(move(position, facing), width, depth - 1);
+    }
+  };
+  function getFieldOfView(g, width, depth) {
+    const calc = new FovCalculator(g);
+    return calc.calculate(width, depth);
+  }
+
   // src/DungeonRenderer.ts
   var tileTag = (id, type, tile) => `${type}${id}:${tile.x},${tile.z}`;
   var DungeonRenderer = class {
-    constructor(canvas, ctx, dungeon, atlasImage, map) {
-      this.canvas = canvas;
-      this.ctx = ctx;
+    constructor(g, dungeon, atlasImage) {
+      this.g = g;
       this.dungeon = dungeon;
       this.atlasImage = atlasImage;
-      this.map = map;
       this.imageData = /* @__PURE__ */ new Map();
-      this.mapSize = 16;
-      this.player = { x: 1, y: 2, dir: 0 };
     }
     generateImages() {
       const atlasCanvas = document.createElement("canvas");
@@ -147,143 +208,149 @@
       return this.dungeon.layers.filter((layer) => layer.type === type);
     }
     project(x, z) {
-      switch (this.player.dir) {
-        case 0:
-          return [this.player.x + x, this.player.y + z];
-        case 1:
-          return [this.player.x - z, this.player.y + x];
-        case 2:
-          return [this.player.x - x, this.player.y - z];
-        case 3:
-          return [this.player.x + z, this.player.y - x];
+      const { facing, position } = this.g;
+      switch (facing) {
+        case Dir_default.N:
+          return [position.x + x, position.y + z];
+        case Dir_default.E:
+          return [position.x - z, position.y + x];
+        case Dir_default.S:
+          return [position.x - x, position.y - z];
+        case Dir_default.W:
+          return [position.x + z, position.y - x];
         default:
-          throw new Error(`Invalid direction: ${this.player.dir}`);
+          throw new Error(`Invalid direction: ${facing}`);
       }
     }
     draw(result) {
       const dx = result.screen.x - (result.flipped ? result.coords.w : 0);
       const dy = result.screen.y;
-      this.ctx.drawImage(result.image, dx, dy);
+      this.g.ctx.drawImage(result.image, dx, dy);
     }
     drawFront(result, x) {
       const dx = result.screen.x + x * result.coords.fullWidth;
       const dy = result.screen.y;
-      this.ctx.drawImage(result.image, dx, dy);
+      this.g.ctx.drawImage(result.image, dx, dy);
     }
-    drawSides(z) {
-      for (let x = -(this.dungeon.width - 1); x <= this.dungeon.width - 1; x++) {
-        const [px, py] = this.project(x, z);
-        if (px >= 0 && py >= 0 && px < this.mapSize && py < this.mapSize) {
-          const cell = this.map[py][px];
-          if (cell.wall) {
-            const result = this.getImage(cell.wall, "side", x, z);
-            if (result)
-              this.draw(result);
-          }
-          if (cell.decal) {
-            const result = this.getImage(cell.decal, "side", x, z);
-            if (result)
-              this.draw(result);
-          }
-        }
-      }
+    drawImage(id, type, x, z) {
+      const result = this.getImage(id, type, x, z);
+      if (result)
+        this.draw(result);
     }
-    drawFronts(z) {
-      for (let x = -(this.dungeon.width - 1); x <= this.dungeon.width - 1; x++) {
-        const [px, py] = this.project(x, z);
-        if (px >= 0 && py >= 0 && px < this.mapSize && py < this.mapSize) {
-          const cell = this.map[py][px];
-          if (cell.wall) {
-            const result = this.getImage(cell.wall, "front", 0, z);
-            if (result)
-              this.drawFront(result, x);
-          }
-          if (cell.decal) {
-            const result = this.getImage(cell.decal, "front", 0, z);
-            if (result)
-              this.drawFront(result, x);
-          }
-          if (cell.object) {
-            const result = this.getImage(cell.object, "object", 0, z);
-            if (result)
-              this.drawFront(result, x);
-          }
-        }
-      }
-    }
-    drawFloor(z) {
-      for (let x = -(this.dungeon.width - 1); x <= this.dungeon.width - 1; x++) {
-        const [px, py] = this.project(x, z);
-        if (px >= 0 && py >= 0 && px < this.mapSize && py < this.mapSize) {
-          const cell = this.map[py][px];
-          if (cell.floor) {
-            const result = this.getImage(cell.floor, "floor", x, z);
-            if (result)
-              this.draw(result);
-          }
-        }
-      }
-    }
-    drawCeiling(z) {
-      for (let x = -(this.dungeon.width - 1); x <= this.dungeon.width - 1; x++) {
-        const [px, py] = this.project(x, z);
-        if (px >= 0 && py >= 0 && px < this.mapSize && py < this.mapSize) {
-          const cell = this.map[py][px];
-          if (cell.ceiling) {
-            const result = this.getImage(cell.ceiling, "ceiling", x, z);
-            if (result)
-              this.draw(result);
-          }
-        }
-      }
+    drawFrontImage(id, type, x, z) {
+      const result = this.getImage(id, type, 0, z);
+      if (result)
+        this.drawFront(result, x);
     }
     cls() {
-      this.ctx.fillStyle = "black";
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      this.g.ctx.fillStyle = "black";
+      this.g.ctx.fillRect(0, 0, this.g.canvas.width, this.g.canvas.height);
     }
     render() {
       this.cls();
-      for (let z = -this.dungeon.depth; z <= 0; z++) {
-        this.drawCeiling(z);
-      }
-      for (let z = -this.dungeon.depth; z <= 0; z++) {
-        this.drawFloor(z);
-      }
-      for (let z = -this.dungeon.depth; z <= 0; z++) {
-        this.drawSides(z);
-        this.drawFronts(z);
+      const rightSide = rotate(this.g.facing, 1);
+      const leftSide = rotate(this.g.facing, 3);
+      const tiles = getFieldOfView(
+        this.g,
+        this.dungeon.width,
+        this.dungeon.depth
+      );
+      for (const pos of tiles) {
+        const cell = this.g.getCell(pos.x, pos.y);
+        if (!cell)
+          continue;
+        const left = cell.sides[leftSide];
+        if (left == null ? void 0 : left.wall)
+          this.drawImage(left.wall, "side", pos.dx - 1, pos.dz);
+        if (left == null ? void 0 : left.decal)
+          this.drawImage(left.decal, "side", pos.dx - 1, pos.dz);
+        const right = cell.sides[rightSide];
+        if (right == null ? void 0 : right.wall)
+          this.drawImage(right.wall, "side", pos.dx + 1, pos.dz);
+        if (right == null ? void 0 : right.decal)
+          this.drawImage(right.decal, "side", pos.dx + 1, pos.dz);
+        const front = cell.sides[this.g.facing];
+        if (front == null ? void 0 : front.wall)
+          this.drawFrontImage(front.wall, "front", pos.dx, pos.dz - 1);
+        if (front == null ? void 0 : front.decal)
+          this.drawFrontImage(front.decal, "front", pos.dx, pos.dz - 1);
+        if (cell.ceiling)
+          this.drawImage(cell.ceiling, "ceiling", pos.dx, pos.dz);
+        if (cell.floor)
+          this.drawImage(cell.floor, "floor", pos.dx, pos.dz);
       }
     }
   };
 
   // src/MinimapRenderer.ts
+  var facingChars = ["^", ">", "v", "<"];
+  var sideColours = {
+    "": "black",
+    d: "silver",
+    s: "white",
+    w: "grey",
+    ds: "silver",
+    dw: "red",
+    sw: "white",
+    dsw: "silver"
+  };
+  function rect(ctx, x, y, ox, oy, w, h, side) {
+    const tag = `${side.decal ? "d" : ""}${side.solid ? "s" : ""}${side.wall ? "w" : ""}`;
+    ctx.fillStyle = sideColours[tag];
+    ctx.fillRect(x + ox, y + oy, w, h);
+  }
   var MinimapRenderer = class {
-    constructor(g, tileSize = 10, size = xy(2, 2), offset = xy(100, 100)) {
+    constructor(g, tileSize = 10, wallSize = 1, size = xy(2, 2), offset = xy(100, 100)) {
       this.g = g;
       this.tileSize = tileSize;
+      this.wallSize = wallSize;
       this.size = size;
       this.offset = offset;
     }
     render() {
-      const { tileSize, size, offset } = this;
+      const { tileSize, size, offset, wallSize } = this;
       const { ctx, facing, position } = this.g;
       const { width, height } = this.g.canvas;
-      const dx = width - offset.x;
-      const dy = height - offset.y;
-      let xx = 0;
-      let yy = dy;
+      const startX = width - offset.x;
+      const startY = height - offset.y;
+      let dx = 0;
+      let dy = startY;
+      ctx.fillStyle = "black";
+      ctx.fillRect(
+        startX,
+        startY,
+        tileSize * (size.x * 2 + 1),
+        tileSize * (size.y * 2 + 1)
+      );
       for (let y = -size.y; y <= size.y; y++) {
-        xx = dx - tileSize;
+        dx = startX - tileSize;
         for (let x = -size.x; x <= size.x; x++) {
-          xx += tileSize;
-          const cell = this.g.getCell({ x: x + position.x, y: y + position.y });
-          if (!cell)
-            continue;
-          ctx.fillStyle = cell.solid ? "black" : "white";
-          ctx.fillRect(xx, yy, tileSize, tileSize);
+          dx += tileSize;
+          const cell = this.g.getCell(x + position.x, y + position.y);
+          const north = cell == null ? void 0 : cell.sides[Dir_default.N];
+          const east = cell == null ? void 0 : cell.sides[Dir_default.E];
+          const south = cell == null ? void 0 : cell.sides[Dir_default.S];
+          const west = cell == null ? void 0 : cell.sides[Dir_default.W];
+          const edge = tileSize - wallSize;
+          if (north)
+            rect(ctx, dx, dy, 0, 0, tileSize, wallSize, north);
+          if (east)
+            rect(ctx, dx, dy, edge, 0, wallSize, tileSize, east);
+          if (south)
+            rect(ctx, dx, dy, 0, edge, tileSize, wallSize, south);
+          if (west)
+            rect(ctx, dx, dy, 0, 0, wallSize, tileSize, west);
         }
-        yy += tileSize;
+        dy += tileSize;
       }
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "white";
+      ctx.fillText(
+        facingChars[facing],
+        startX + tileSize * (size.x + 0.5),
+        startY + tileSize * (size.y + 0.5)
+      );
     }
   };
 
@@ -294,6 +361,7 @@
       this.loaders = [];
       this.atlases = {};
       this.images = {};
+      this.maps = {};
     }
     start(src, promise) {
       this.promises.set(src, promise);
@@ -325,6 +393,18 @@
         fetch(src).then((r) => r.json()).then((atlas) => {
           this.atlases[src] = atlas;
           return atlas;
+        })
+      );
+    }
+    loadGCMap(src) {
+      const res = this.promises.get(src);
+      if (res)
+        return res;
+      return this.start(
+        src,
+        fetch(src).then((r) => r.json()).then((map) => {
+          this.maps[src] = map;
+          return map;
         })
       );
     }
@@ -390,6 +470,148 @@
     return clone(src, /* @__PURE__ */ new Map());
   }
 
+  // res/atlas/minma1.png
+  var minma1_default = "./minma1-VI5UXWCY.png";
+
+  // res/atlas/minma1.json
+  var minma1_default2 = "./minma1-6Z2CTON5.json";
+
+  // src/resources.ts
+  var AtlasResources = {
+    minma1: { image: minma1_default, json: minma1_default2 }
+  };
+
+  // src/Grid.ts
+  var Grid = class {
+    constructor(defaultValue, toTag = xyToTag) {
+      this.defaultValue = defaultValue;
+      this.toTag = toTag;
+      this.entries = /* @__PURE__ */ new Map();
+      this.width = 0;
+      this.height = 0;
+    }
+    set(xy2, item) {
+      const tag = this.toTag(xy2);
+      this.entries.set(tag, item);
+      this.width = Math.max(this.width, xy2.x + 1);
+      this.height = Math.max(this.height, xy2.y + 1);
+    }
+    get(xy2) {
+      return this.entries.get(this.toTag(xy2));
+    }
+    getOrDefault(xy2) {
+      const existing = this.get(xy2);
+      if (existing)
+        return existing;
+      const value = this.defaultValue(xy2);
+      this.set(xy2, value);
+      return value;
+    }
+    asArray() {
+      const rows = [];
+      for (let y = 0; y < this.height; y++) {
+        const row = [];
+        for (let x = 0; x < this.width; x++)
+          row.push(this.getOrDefault({ x, y }));
+        rows.push(row);
+      }
+      return rows;
+    }
+  };
+
+  // src/convertGridCartographerMap.ts
+  var wall = { wall: true, solid: true };
+  var door = { decal: "Door", wall: true };
+  var invisible = { solid: true };
+  var fake = { wall: true };
+  var defaultEdge = { main: wall, opposite: wall };
+  var EdgeDetails = {
+    [2 /* Door */]: { main: door, opposite: door },
+    [33 /* Door_Box */]: { main: door, opposite: door },
+    [8 /* Door_OneWayRD */]: { main: door, opposite: wall },
+    [5 /* Door_OneWayLU */]: { main: wall, opposite: door },
+    [13 /* Wall_Secret */]: { main: invisible, opposite: invisible },
+    [10 /* Wall_OneWayRD */]: { main: fake, opposite: wall },
+    [7 /* Wall_OneWayLU */]: { main: wall, opposite: fake }
+  };
+  function apply(decals, edge, texture, lt, ld, rt, rd) {
+    var _a;
+    const { main, opposite } = (_a = EdgeDetails[edge]) != null ? _a : defaultEdge;
+    lt.sides[ld] = {
+      wall: main.wall ? texture : void 0,
+      decal: decals[`${main.decal},${texture}`],
+      solid: main.solid
+    };
+    rt.sides[rd] = {
+      wall: opposite.wall ? texture : void 0,
+      decal: decals[`${opposite.decal},${texture}`],
+      solid: opposite.solid
+    };
+  }
+  function convertGridCartographerMap(j, region = 0, floor = 0) {
+    var _a, _b, _c;
+    const r = j.regions[region];
+    if (!r)
+      throw new Error(`No such region: ${region}`);
+    const f = r.floors.find((f2) => f2.index === floor);
+    if (!f)
+      throw new Error(`No such floor: ${floor}`);
+    const grid = new Grid(() => ({ sides: {} }));
+    const decals = {};
+    let atlas = void 0;
+    let start = xy(0, 0);
+    let facing = Dir_default.N;
+    for (const note of f.notes) {
+      const { __data, x, y } = note;
+      if (!__data || !__data.startsWith("#"))
+        continue;
+      const [cmd, arg] = __data.split(" ");
+      if (cmd === "#ATLAS") {
+        atlas = AtlasResources[arg];
+      } else if (cmd === "#START") {
+        start = { x, y };
+        facing = dirFromInitial(arg);
+      } else if (cmd === "#DECAL") {
+        const [name, texture, decal] = arg.split(",");
+        decals[`${name},${texture}`] = Number(decal);
+      }
+    }
+    for (const row of (_a = f.tiles.rows) != null ? _a : []) {
+      let x = f.tiles.bounds.x0 + row.start;
+      const y = r.setup.origin === "tl" ? row.y : f.tiles.bounds.height - (row.y - f.tiles.bounds.y0) - 1;
+      for (const tile of row.tdata) {
+        const mt = grid.getOrDefault({ x, y });
+        if (tile.t)
+          mt.floor = tile.tc || 1;
+        if (tile.c)
+          mt.ceiling = 1;
+        if (tile.b)
+          apply(
+            decals,
+            tile.b,
+            (_b = tile.bc) != null ? _b : 1,
+            mt,
+            Dir_default.S,
+            grid.getOrDefault({ x, y: y + 1 }),
+            Dir_default.N
+          );
+        if (tile.r)
+          apply(
+            decals,
+            tile.r,
+            (_c = tile.rc) != null ? _c : 1,
+            mt,
+            Dir_default.E,
+            grid.getOrDefault({ x: x + 1, y }),
+            Dir_default.W
+          );
+        x++;
+      }
+    }
+    const cells = grid.asArray();
+    return { atlas, cells, start, facing };
+  }
+
   // src/Engine.ts
   var Engine = class {
     constructor(canvas) {
@@ -430,40 +652,53 @@
           this.res.loadAtlas(w.atlas.json),
           this.res.loadImage(w.atlas.image)
         ]);
-        this.dungeon = new DungeonRenderer(
-          this.canvas,
-          this.ctx,
-          atlas,
-          image,
-          this.world.cells
-        );
+        this.dungeon = new DungeonRenderer(this, atlas, image);
         this.minimap = new MinimapRenderer(this);
         yield this.dungeon.generateImages();
         this.ready = true;
         return this.draw();
       });
     }
-    getCell(pos) {
+    loadGCMap(jsonUrl, region, floor) {
+      return __async(this, null, function* () {
+        this.ready = false;
+        const map = yield this.res.loadGCMap(jsonUrl);
+        const { atlas, cells, start, facing } = convertGridCartographerMap(
+          map,
+          region,
+          floor
+        );
+        if (!atlas)
+          throw new Error(`${jsonUrl} did not contain #ATLAS`);
+        return this.loadWorld({ atlas, cells, start, facing });
+      });
+    }
+    getCell(x, y) {
       var _a;
-      if (pos.x < 0 || pos.x >= this.worldSize.x || pos.y < 0 || pos.y >= this.worldSize.y)
-        return void 0;
-      return (_a = this.world) == null ? void 0 : _a.cells[pos.y][pos.x];
+      if (x < 0 || x >= this.worldSize.x || y < 0 || y >= this.worldSize.y)
+        return;
+      return (_a = this.world) == null ? void 0 : _a.cells[y][x];
     }
     draw() {
       this.drawSoon.schedule();
     }
     renderWorld() {
-      const { ctx, facing, position } = this;
+      const { ctx } = this;
       const { width, height } = this.canvas;
       ctx.clearRect(0, 0, width, height);
-      this.dungeon.player = { x: position.x, y: position.y, dir: facing };
       this.dungeon.render();
       this.minimap.render();
     }
     canMove(dir) {
-      var _a;
+      const at = this.getCell(this.position.x, this.position.y);
+      if (!at)
+        return false;
+      const wall2 = at == null ? void 0 : at.sides[dir];
+      if (wall2 == null ? void 0 : wall2.solid)
+        return false;
       const destination = move(this.position, dir);
-      if ((_a = this.getCell(destination)) == null ? void 0 : _a.solid)
+      const cell = this.getCell(destination.x, destination.y);
+      if (!cell)
         return false;
       return true;
     }
@@ -479,40 +714,8 @@
     }
   };
 
-  // res/atlas/minma1.png
-  var minma1_default = "./minma1-VI5UXWCY.png";
-
-  // res/atlas/minma1.json
-  var minma1_default2 = "./minma1-6Z2CTON5.json";
-
-  // src/data/testWorld.ts
-  var _ = { floor: 1 /* White */, ceiling: 1 /* White */ };
-  var a = __spreadProps(__spreadValues({}, _), { solid: true, wall: 1 /* White */ });
-  var b = __spreadProps(__spreadValues({}, _), { solid: true, wall: 1 /* White */, decal: 2 /* Door */ });
-  var testWorld = {
-    atlas: { image: minma1_default, json: minma1_default2 },
-    cells: [
-      [a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a],
-      [a, _, _, _, _, _, _, a, b, _, _, a, _, _, _, a],
-      [a, _, a, a, a, a, _, a, a, a, _, a, _, a, a, a],
-      [a, a, _, _, _, _, _, _, _, _, _, _, _, _, _, a],
-      [a, _, _, _, a, _, a, b, a, _, a, _, a, a, _, a],
-      [a, _, a, _, a, _, a, a, a, _, a, _, a, _, _, a],
-      [a, _, _, _, _, _, _, _, _, _, _, _, _, _, _, a],
-      [a, _, a, _, a, _, _, _, a, a, a, _, _, _, _, a],
-      [a, _, _, a, a, _, b, _, a, _, _, _, _, a, _, a],
-      [a, _, _, _, _, _, a, _, _, a, _, _, a, a, _, a],
-      [a, a, _, a, a, _, a, _, a, a, _, _, _, _, _, a],
-      [a, _, _, _, a, _, _, _, _, _, _, a, a, _, a, a],
-      [a, _, a, _, a, _, _, a, _, _, _, a, a, _, _, a],
-      [a, a, a, _, _, _, a, a, a, _, a, a, _, _, _, a],
-      [a, _, _, _, a, _, _, a, _, _, _, _, _, a, _, a],
-      [a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a]
-    ],
-    start: xy(1, 2),
-    facing: Dir_default.N
-  };
-  var testWorld_default = testWorld;
+  // res/map.json
+  var map_default = "./map-OVD476PJ.json";
 
   // src/index.ts
   function loadEngine(parent) {
@@ -540,7 +743,7 @@
     };
     window.addEventListener("resize", onResize);
     onResize();
-    g.loadWorld(testWorld_default);
+    g.loadGCMap(map_default, 0, 1);
   }
   window.addEventListener("load", () => loadEngine(document.body));
 })();

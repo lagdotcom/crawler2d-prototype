@@ -1,13 +1,17 @@
 import Dir from "./Dir";
 import XY from "./XY";
 
-export type WorldCell = {
+export type WorldSide = {
   solid?: boolean;
   wall?: number;
   decal?: number;
+};
+
+export type WorldCell = {
   object?: number;
   ceiling?: number;
   floor?: number;
+  sides: Partial<Record<Dir, WorldSide>>;
 };
 
 type World = {

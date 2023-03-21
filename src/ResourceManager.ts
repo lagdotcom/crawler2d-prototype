@@ -1,9 +1,11 @@
 import Atlas from "./types/Atlas";
+import { Map as GCMap } from "./GridCartographer/schema";
 
 export default class ResourceManager {
   promises: Map<string, Promise<unknown>>;
   loaders: Promise<unknown>[];
   atlases: Record<string, Atlas>;
+  maps: Record<string, GCMap>;
   images: Record<string, HTMLImageElement>;
 
   constructor() {
@@ -11,6 +13,7 @@ export default class ResourceManager {
     this.loaders = [];
     this.atlases = {};
     this.images = {};
+    this.maps = {};
   }
 
   private start<T>(src: string, promise: Promise<T>) {
@@ -48,6 +51,21 @@ export default class ResourceManager {
         .then((atlas) => {
           this.atlases[src] = atlas;
           return atlas;
+        })
+    );
+  }
+
+  loadGCMap(src: string): Promise<GCMap> {
+    const res = this.promises.get(src);
+    if (res) return res as Promise<GCMap>;
+
+    return this.start(
+      src,
+      fetch(src)
+        .then<GCMap>((r) => r.json())
+        .then((map) => {
+          this.maps[src] = map;
+          return map;
         })
     );
   }

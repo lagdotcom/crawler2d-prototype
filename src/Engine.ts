@@ -8,6 +8,7 @@ import Soon from "./Soon";
 import World from "./types/World";
 import XY from "./types/XY";
 import clone from "nanoclone";
+import convertGridCartographerMap from "./convertGridCartographerMap";
 import getCanvasContext from "./tools/getCanvasContext";
 
 export default class Engine {
@@ -52,13 +53,7 @@ export default class Engine {
       this.res.loadAtlas(w.atlas.json),
       this.res.loadImage(w.atlas.image),
     ]);
-    this.dungeon = new DungeonRenderer(
-      this.canvas,
-      this.ctx,
-      atlas,
-      image,
-      this.world.cells
-    );
+    this.dungeon = new DungeonRenderer(this, atlas, image);
     this.minimap = new MinimapRenderer(this);
 
     await this.dungeon.generateImages();
@@ -67,16 +62,25 @@ export default class Engine {
     return this.draw();
   }
 
-  getCell(pos: XY) {
-    if (
-      pos.x < 0 ||
-      pos.x >= this.worldSize.x ||
-      pos.y < 0 ||
-      pos.y >= this.worldSize.y
-    )
+  async loadGCMap(jsonUrl: string, region: number, floor: number) {
+    this.ready = false;
+
+    const map = await this.res.loadGCMap(jsonUrl);
+    const { atlas, cells, start, facing } = convertGridCartographerMap(
+      map,
+      region,
+      floor
+    );
+    if (!atlas) throw new Error(`${jsonUrl} did not contain #ATLAS`);
+
+    return this.loadWorld({ atlas, cells, start, facing });
+  }
+
+  getCell(x: number, y: number) {
+    if (x < 0 || x >= this.worldSize.x || y < 0 || y >= this.worldSize.y)
       return;
 
-    return this.world?.cells[pos.y][pos.x];
+    return this.world?.cells[y][x];
   }
 
   draw() {
@@ -93,19 +97,27 @@ export default class Engine {
   };
 
   renderWorld() {
-    const { ctx, facing, position } = this;
+    const { ctx } = this;
     const { width, height } = this.canvas;
 
     ctx.clearRect(0, 0, width, height);
-    this.dungeon!.player = { x: position.x, y: position.y, dir: facing };
     this.dungeon!.render();
     this.minimap!.render();
   }
 
   canMove(dir: Dir) {
+    // has something gone badly wrong?
+    const at = this.getCell(this.position.x, this.position.y);
+    if (!at) return false;
+
     // is there a wall in the way?
+    const wall = at?.sides[dir];
+    if (wall?.solid) return false;
+
+    // is there anywhere to move to??
     const destination = move(this.position, dir);
-    if (this.getCell(destination)?.solid) return false;
+    const cell = this.getCell(destination.x, destination.y);
+    if (!cell) return false;
 
     // TODO etc. etc.
     return true;

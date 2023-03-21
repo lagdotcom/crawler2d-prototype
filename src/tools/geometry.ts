@@ -19,3 +19,17 @@ export function move(pos: XY, dir: Dir): XY {
 export function rotate(dir: Dir, clockwise: number): Dir {
   return (dir + clockwise + 4) % 4;
 }
+
+export function dirFromInitial(initial: string): Dir {
+  switch (initial) {
+    case "E":
+      return Dir.E;
+    case "S":
+      return Dir.S;
+    case "W":
+      return Dir.W;
+    case "N":
+    default:
+      return Dir.N;
+  }
+}
