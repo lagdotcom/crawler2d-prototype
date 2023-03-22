@@ -1,18 +1,18 @@
 type ContextId = "2d" | "bitmaprenderer" | "webgl" | "webgl2";
 
-type ContextOptions = {
+interface ContextOptions {
   "2d": CanvasRenderingContext2DSettings;
   bitmaprenderer: ImageBitmapRenderingContextSettings;
   webgl: WebGLContextAttributes;
   webgl2: WebGLContextAttributes;
-};
+}
 
-type RenderingContext = {
+interface RenderingContext {
   "2d": CanvasRenderingContext2D;
   bitmaprenderer: ImageBitmapRenderingContext;
   webgl: WebGLRenderingContext;
   webgl2: WebGL2RenderingContext;
-};
+}
 
 export default function getCanvasContext<T extends ContextId>(
   canvas: HTMLCanvasElement,

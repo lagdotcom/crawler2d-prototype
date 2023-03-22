@@ -11,10 +11,10 @@ import clone from "nanoclone";
 import convertGridCartographerMap from "./convertGridCartographerMap";
 import getCanvasContext from "./tools/getCanvasContext";
 
-type RenderSetup = {
+interface RenderSetup {
   dungeon: DungeonRenderer;
   minimap: MinimapRenderer;
-};
+}
 
 export default class Engine {
   ctx: CanvasRenderingContext2D;
@@ -110,7 +110,7 @@ export default class Engine {
     if (!at) return false;
 
     // is there a wall in the way?
-    const wall = at?.sides[dir];
+    const wall = at.sides[dir];
     if (wall?.solid) return false;
 
     // is there anywhere to move to??

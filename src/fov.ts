@@ -5,12 +5,12 @@ import Dir from "./types/Dir";
 import Engine from "./Engine";
 import XY from "./types/XY";
 
-type FovEntry = {
+interface FovEntry {
   x: number;
   y: number;
   dx: number;
   dz: number;
-};
+}
 
 const facingDisplacements: Record<Dir, [number, number, number, number]> = {
   [Dir.E]: [0, 1, -1, 0],

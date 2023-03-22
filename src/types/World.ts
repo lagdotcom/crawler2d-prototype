@@ -1,23 +1,28 @@
 import Dir from "./Dir";
 import XY from "./XY";
 
-export type WorldSide = {
+export interface WorldSide {
   solid?: boolean;
   wall?: number;
   decal?: number;
-};
+}
 
-export type WorldCell = {
+export interface WorldCell {
   object?: number;
   ceiling?: number;
   floor?: number;
   sides: Partial<Record<Dir, WorldSide>>;
-};
+}
 
-type World = {
-  atlas: { image: string; json: string };
+export interface AtlasReference {
+  image: string;
+  json: string;
+}
+
+interface World {
+  atlas: AtlasReference;
   cells: WorldCell[][];
   start: XY;
   facing: Dir;
-};
+}
 export default World;

@@ -534,82 +534,130 @@
     [10 /* Wall_OneWayRD */]: { main: fake, opposite: wall },
     [7 /* Wall_OneWayLU */]: { main: wall, opposite: fake }
   };
-  function apply(decals, edge, texture, lt, ld, rt, rd) {
-    var _a;
-    const { main, opposite } = (_a = EdgeDetails[edge]) != null ? _a : defaultEdge;
-    lt.sides[ld] = {
-      wall: main.wall ? texture : void 0,
-      decal: decals[`${main.decal},${texture}`],
-      solid: main.solid
-    };
-    rt.sides[rd] = {
-      wall: opposite.wall ? texture : void 0,
-      decal: decals[`${opposite.decal},${texture}`],
-      solid: opposite.solid
-    };
-  }
+  var GCMapConverter = class {
+    constructor() {
+      this.decals = /* @__PURE__ */ new Map();
+      this.definitions = /* @__PURE__ */ new Map();
+      this.textures = /* @__PURE__ */ new Map();
+      this.start = xy(0, 0);
+      this.facing = Dir_default.N;
+    }
+    convert(j, region = 0, floor = 0) {
+      var _a, _b;
+      if (!(region in j.regions))
+        throw new Error(`No such region: ${region}`);
+      const r = j.regions[region];
+      const f = r.floors.find((f2) => f2.index === floor);
+      if (!f)
+        throw new Error(`No such floor: ${floor}`);
+      const grid = new Grid(() => ({ sides: {} }));
+      for (const note of f.notes) {
+        const { __data, x, y } = note;
+        for (const line of (_a = __data == null ? void 0 : __data.split("\n")) != null ? _a : []) {
+          if (!line.startsWith("#"))
+            continue;
+          const [cmd, arg] = line.split(" ");
+          this.applyCommand(cmd, arg, x, y);
+        }
+      }
+      for (const row of (_b = f.tiles.rows) != null ? _b : []) {
+        let x = f.tiles.bounds.x0 + row.start;
+        const y = r.setup.origin === "tl" ? row.y : f.tiles.bounds.height - (row.y - f.tiles.bounds.y0) - 1;
+        for (const tile of row.tdata) {
+          const mt = grid.getOrDefault({ x, y });
+          if (tile.t)
+            mt.floor = this.getTexture(tile.tc);
+          if (tile.c)
+            mt.ceiling = this.getTexture(0);
+          if (tile.b)
+            this.setEdge(
+              tile.b,
+              tile.bc,
+              mt,
+              Dir_default.S,
+              grid.getOrDefault({ x, y: y + 1 }),
+              Dir_default.N
+            );
+          if (tile.r)
+            this.setEdge(
+              tile.r,
+              tile.rc,
+              mt,
+              Dir_default.E,
+              grid.getOrDefault({ x: x + 1, y }),
+              Dir_default.W
+            );
+          x++;
+        }
+      }
+      const { atlas, start, facing } = this;
+      const cells = grid.asArray();
+      return { atlas, cells, start, facing };
+    }
+    getTexture(index = 0) {
+      const texture = this.textures.get(index);
+      if (typeof texture === "undefined")
+        throw new Error(`Unknown texture for palette index ${index}`);
+      return texture;
+    }
+    eval(s) {
+      const def = this.definitions.get(s);
+      if (typeof def !== "undefined")
+        return def;
+      const num = Number(s);
+      if (!isNaN(num))
+        return num;
+      throw new Error(`Could not evaluate: ${s}`);
+    }
+    applyCommand(cmd, arg, x, y) {
+      switch (cmd) {
+        case "#ATLAS":
+          this.atlas = AtlasResources[arg];
+          return;
+        case "#DEFINE": {
+          const [key, value] = arg.split(",");
+          if (this.definitions.has(key))
+            throw new Error(`Already defined: ${key}`);
+          this.definitions.set(key, this.eval(value));
+          return;
+        }
+        case "#STYLE": {
+          const [index, value] = arg.split(",");
+          this.textures.set(this.eval(index), this.eval(value));
+          return;
+        }
+        case "#DECAL": {
+          const [name, texture, decal] = arg.split(",");
+          this.decals.set(`${name},${this.eval(texture)}`, this.eval(decal));
+          return;
+        }
+        case "#START":
+          this.start = { x, y };
+          this.facing = dirFromInitial(arg);
+          return;
+        default:
+          throw new Error(`Unknown command: ${cmd} ${arg} at (${x},${y})`);
+      }
+    }
+    setEdge(edge, index, lt, ld, rt, rd) {
+      var _a;
+      const { main, opposite } = (_a = EdgeDetails[edge]) != null ? _a : defaultEdge;
+      const texture = this.getTexture(index);
+      lt.sides[ld] = {
+        wall: main.wall ? texture : void 0,
+        decal: this.decals.get(`${main.decal},${texture}`),
+        solid: main.solid
+      };
+      rt.sides[rd] = {
+        wall: opposite.wall ? texture : void 0,
+        decal: this.decals.get(`${opposite.decal},${texture}`),
+        solid: opposite.solid
+      };
+    }
+  };
   function convertGridCartographerMap(j, region = 0, floor = 0) {
-    var _a, _b, _c;
-    const r = j.regions[region];
-    if (!r)
-      throw new Error(`No such region: ${region}`);
-    const f = r.floors.find((f2) => f2.index === floor);
-    if (!f)
-      throw new Error(`No such floor: ${floor}`);
-    const grid = new Grid(() => ({ sides: {} }));
-    const decals = {};
-    let atlas = void 0;
-    let start = xy(0, 0);
-    let facing = Dir_default.N;
-    for (const note of f.notes) {
-      const { __data, x, y } = note;
-      if (!__data || !__data.startsWith("#"))
-        continue;
-      const [cmd, arg] = __data.split(" ");
-      if (cmd === "#ATLAS") {
-        atlas = AtlasResources[arg];
-      } else if (cmd === "#START") {
-        start = { x, y };
-        facing = dirFromInitial(arg);
-      } else if (cmd === "#DECAL") {
-        const [name, texture, decal] = arg.split(",");
-        decals[`${name},${texture}`] = Number(decal);
-      }
-    }
-    for (const row of (_a = f.tiles.rows) != null ? _a : []) {
-      let x = f.tiles.bounds.x0 + row.start;
-      const y = r.setup.origin === "tl" ? row.y : f.tiles.bounds.height - (row.y - f.tiles.bounds.y0) - 1;
-      for (const tile of row.tdata) {
-        const mt = grid.getOrDefault({ x, y });
-        if (tile.t)
-          mt.floor = tile.tc || 1;
-        if (tile.c)
-          mt.ceiling = 1;
-        if (tile.b)
-          apply(
-            decals,
-            tile.b,
-            (_b = tile.bc) != null ? _b : 1,
-            mt,
-            Dir_default.S,
-            grid.getOrDefault({ x, y: y + 1 }),
-            Dir_default.N
-          );
-        if (tile.r)
-          apply(
-            decals,
-            tile.r,
-            (_c = tile.rc) != null ? _c : 1,
-            mt,
-            Dir_default.E,
-            grid.getOrDefault({ x: x + 1, y }),
-            Dir_default.W
-          );
-        x++;
-      }
-    }
-    const cells = grid.asArray();
-    return { atlas, cells, start, facing };
+    const converter = new GCMapConverter();
+    return converter.convert(j, region, floor);
   }
 
   // src/Engine.ts
@@ -689,7 +737,7 @@
       const at = this.getCell(this.position.x, this.position.y);
       if (!at)
         return false;
-      const wall2 = at == null ? void 0 : at.sides[dir];
+      const wall2 = at.sides[dir];
       if (wall2 == null ? void 0 : wall2.solid)
         return false;
       const destination = move(this.position, dir);
@@ -711,7 +759,7 @@
   };
 
   // res/map.json
-  var map_default = "./map-OVD476PJ.json";
+  var map_default = "./map-4ZUIW2C6.json";
 
   // src/index.ts
   function loadEngine(parent) {
