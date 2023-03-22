@@ -1,10 +1,9 @@
-import { Map, Tile } from "./GridCartographer/schema";
+import { Edge, GCMap } from "./types/GCMap";
 import World, { WorldCell } from "./types/World";
 import { dirFromInitial, xy } from "./tools/geometry";
 
 import { AtlasResources } from "./resources";
 import Dir from "./types/Dir";
-import { Edge } from "./GridCartographer/enums";
 import Grid from "./Grid";
 import XY from "./types/XY";
 
@@ -52,7 +51,7 @@ function apply(
 }
 
 export default function convertGridCartographerMap(
-  j: Map,
+  j: GCMap,
   region = 0,
   floor = 0
 ): { atlas?: World["atlas"]; cells: WorldCell[][]; start: XY; facing: Dir } {

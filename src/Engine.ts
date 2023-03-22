@@ -11,14 +11,17 @@ import clone from "nanoclone";
 import convertGridCartographerMap from "./convertGridCartographerMap";
 import getCanvasContext from "./tools/getCanvasContext";
 
+type RenderSetup = {
+  dungeon: DungeonRenderer;
+  minimap: MinimapRenderer;
+};
+
 export default class Engine {
   ctx: CanvasRenderingContext2D;
   drawSoon: Soon;
   facing: Dir;
   position: XY;
-  ready: boolean;
-  dungeon?: DungeonRenderer;
-  minimap?: MinimapRenderer;
+  renderSetup?: RenderSetup;
   res: ResourceManager;
   world?: World;
   worldSize: XY;
@@ -29,7 +32,6 @@ export default class Engine {
     this.facing = Dir.N;
     this.position = xy(0, 0);
     this.worldSize = xy(0, 0);
-    this.ready = false;
     this.res = new ResourceManager();
     this.drawSoon = new Soon(this.render);
 
@@ -42,7 +44,7 @@ export default class Engine {
   }
 
   async loadWorld(w: World) {
-    this.ready = false;
+    this.renderSetup = undefined;
 
     this.world = clone(w);
     this.worldSize = xy(this.world.cells[0].length, this.world.cells.length);
@@ -53,17 +55,17 @@ export default class Engine {
       this.res.loadAtlas(w.atlas.json),
       this.res.loadImage(w.atlas.image),
     ]);
-    this.dungeon = new DungeonRenderer(this, atlas, image);
-    this.minimap = new MinimapRenderer(this);
+    const dungeon = new DungeonRenderer(this, atlas, image);
+    const minimap = new MinimapRenderer(this);
 
-    await this.dungeon.generateImages();
+    await dungeon.generateImages();
 
-    this.ready = true;
+    this.renderSetup = { dungeon, minimap };
     return this.draw();
   }
 
   async loadGCMap(jsonUrl: string, region: number, floor: number) {
-    this.ready = false;
+    this.renderSetup = undefined;
 
     const map = await this.res.loadGCMap(jsonUrl);
     const { atlas, cells, start, facing } = convertGridCartographerMap(
@@ -88,22 +90,19 @@ export default class Engine {
   }
 
   render = () => {
-    if (!this.ready) {
+    const { ctx, renderSetup } = this;
+    const { width, height } = this.canvas;
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (!renderSetup) {
       this.draw();
       return;
     }
 
-    this.renderWorld();
+    renderSetup.dungeon.render();
+    renderSetup.minimap.render();
   };
-
-  renderWorld() {
-    const { ctx } = this;
-    const { width, height } = this.canvas;
-
-    ctx.clearRect(0, 0, width, height);
-    this.dungeon!.render();
-    this.minimap!.render();
-  }
 
   canMove(dir: Dir) {
     // has something gone badly wrong?

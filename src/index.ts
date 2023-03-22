@@ -1,10 +1,5 @@
-import Dir from "./types/Dir";
 import Engine from "./Engine";
-import image from "../res/atlas/minma1.png";
-import json from "../res/atlas/minma1.json";
 import mapJson from "../res/map.json";
-import testWorld from "./data/testWorld";
-import { xy } from "./tools/geometry";
 
 function loadEngine(parent: HTMLElement) {
   const container = document.createElement("div");
@@ -15,6 +10,7 @@ function loadEngine(parent: HTMLElement) {
 
   const g = new Engine(canvas);
   requestAnimationFrame(() => canvas.focus());
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).g = g;
 
   const onResize = () => {
@@ -39,7 +35,6 @@ function loadEngine(parent: HTMLElement) {
   onResize();
 
   g.loadGCMap(mapJson, 0, 1);
-  // g.loadWorld(testWorld);
 }
 
 window.addEventListener("load", () => loadEngine(document.body));

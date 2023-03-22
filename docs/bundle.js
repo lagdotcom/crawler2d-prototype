@@ -617,17 +617,20 @@
     constructor(canvas) {
       this.canvas = canvas;
       this.render = () => {
-        if (!this.ready) {
+        const { ctx, renderSetup } = this;
+        const { width, height } = this.canvas;
+        ctx.clearRect(0, 0, width, height);
+        if (!renderSetup) {
           this.draw();
           return;
         }
-        this.renderWorld();
+        renderSetup.dungeon.render();
+        renderSetup.minimap.render();
       };
       this.ctx = getCanvasContext(canvas, "2d");
       this.facing = Dir_default.N;
       this.position = xy(0, 0);
       this.worldSize = xy(0, 0);
-      this.ready = false;
       this.res = new ResourceManager();
       this.drawSoon = new Soon(this.render);
       canvas.addEventListener("keyup", (e) => {
@@ -643,7 +646,7 @@
     }
     loadWorld(w) {
       return __async(this, null, function* () {
-        this.ready = false;
+        this.renderSetup = void 0;
         this.world = src_default(w);
         this.worldSize = xy(this.world.cells[0].length, this.world.cells.length);
         this.position = w.start;
@@ -652,16 +655,16 @@
           this.res.loadAtlas(w.atlas.json),
           this.res.loadImage(w.atlas.image)
         ]);
-        this.dungeon = new DungeonRenderer(this, atlas, image);
-        this.minimap = new MinimapRenderer(this);
-        yield this.dungeon.generateImages();
-        this.ready = true;
+        const dungeon = new DungeonRenderer(this, atlas, image);
+        const minimap = new MinimapRenderer(this);
+        yield dungeon.generateImages();
+        this.renderSetup = { dungeon, minimap };
         return this.draw();
       });
     }
     loadGCMap(jsonUrl, region, floor) {
       return __async(this, null, function* () {
-        this.ready = false;
+        this.renderSetup = void 0;
         const map = yield this.res.loadGCMap(jsonUrl);
         const { atlas, cells, start, facing } = convertGridCartographerMap(
           map,
@@ -681,13 +684,6 @@
     }
     draw() {
       this.drawSoon.schedule();
-    }
-    renderWorld() {
-      const { ctx } = this;
-      const { width, height } = this.canvas;
-      ctx.clearRect(0, 0, width, height);
-      this.dungeon.render();
-      this.minimap.render();
     }
     canMove(dir) {
       const at = this.getCell(this.position.x, this.position.y);

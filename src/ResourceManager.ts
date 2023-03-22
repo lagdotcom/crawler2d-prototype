@@ -1,5 +1,5 @@
 import Atlas from "./types/Atlas";
-import { Map as GCMap } from "./GridCartographer/schema";
+import { GCMap } from "./types/GCMap";
 
 export default class ResourceManager {
   promises: Map<string, Promise<unknown>>;
