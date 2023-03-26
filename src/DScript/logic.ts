@@ -2,6 +2,9 @@ import {
   Assignment,
   BinaryOp,
   Expression,
+  FunctionArg,
+  FunctionArgType,
+  FunctionDefinition,
   Literal,
   LiteralBoolean,
   LiteralNumber,
@@ -15,11 +18,20 @@ export type LiteralType = Literal["_"];
 export interface NativeFunction {
   _: "native";
   name: string;
-  args: LiteralType[];
+  args: FunctionArgType[];
   value: Function;
 }
 
-export type RuntimeValue = Literal | NativeFunction;
+export interface DScriptFunction {
+  _: "function";
+  name: string;
+  args: FunctionArg[];
+  value: Program;
+}
+
+export type RuntimeFunction = NativeFunction | DScriptFunction;
+export type RuntimeValue = Literal | RuntimeFunction;
+export type RuntimeType = RuntimeValue["_"];
 
 export type Env = Map<string, RuntimeValue>;
 
@@ -130,6 +142,15 @@ function binary(
   }
 }
 
+function convertToFunction(stmt: FunctionDefinition): DScriptFunction {
+  return {
+    _: "function",
+    name: stmt.name.value,
+    args: stmt.args,
+    value: stmt.program,
+  };
+}
+
 export function runInScope(scope: Scope, prg: Program) {
   for (const stmt of prg) {
     switch (stmt._) {
@@ -139,9 +160,14 @@ export function runInScope(scope: Scope, prg: Program) {
 
       case "call":
         callFunction(
+          scope,
           resolve(scope, stmt.fn.value),
           stmt.args.map((arg) => evaluate(scope, arg))
         );
+        break;
+
+      case "function":
+        scope.env.set(stmt.name.value, convertToFunction(stmt));
         break;
 
       default:
@@ -197,6 +223,7 @@ function evaluate(scope: Scope, expr: Expression): RuntimeValue {
 
     case "call": {
       const value = callFunction(
+        scope,
         resolve(scope, expr.fn.value),
         expr.args.map((arg) => evaluate(scope, arg))
       );
@@ -207,31 +234,54 @@ function evaluate(scope: Scope, expr: Expression): RuntimeValue {
   }
 }
 
-function checkFunctionArgs(fn: NativeFunction, got: RuntimeValue[]) {
+function isTypeMatch(want: FunctionArgType, got: RuntimeType) {
+  if (want === "any") return true;
+
+  if (want === got) return true;
+  if (want === "function" && got === "native") return true;
+
+  return false;
+}
+
+function checkFunctionArgs(fn: RuntimeFunction, got: RuntimeValue[]) {
+  const argTypes =
+    fn._ === "function" ? fn.args.map((arg) => arg.type) : fn.args;
+
   const fail = () => {
     throw new Error(
-      `${fn.name} wants (${fn.args.join(", ")}) but got (${got
+      `${fn.name} wants (${argTypes.join(", ")}) but got (${got
         .map((arg) => arg._)
         .join(", ")})`
     );
   };
 
-  if (fn.args.length !== got.length) fail();
-  for (let i = 0; i < fn.args.length; i++) {
-    if (fn.args[i] !== got[i]._) fail();
+  if (argTypes.length !== got.length) fail();
+  for (let i = 0; i < argTypes.length; i++) {
+    if (!isTypeMatch(argTypes[i], got[i]._)) fail();
   }
 }
 
 function callFunction(
+  parent: Scope,
   fn: RuntimeValue,
   args: RuntimeValue[]
 ): Literal | undefined {
-  if (fn._ !== "native") throw new Error(`Cannot call a ${fn._}`);
+  if (fn._ !== "function" && fn._ !== "native")
+    throw new Error(`Cannot call a ${fn._}`);
 
   checkFunctionArgs(fn, args);
 
-  const result = fn.value.call(undefined, ...args.map(unbox));
-  return result ? box(result) : undefined;
+  if (fn._ === "native") {
+    const result = fn.value.call(undefined, ...args.map(unbox));
+    return result ? box(result) : undefined;
+  }
+
+  const scope: Scope = { env: new Map(), parent };
+  for (let i = 0; i < args.length; i++)
+    scope.env.set(fn.args[i].name.value, args[i]);
+
+  // TODO DScript functions that return things
+  runInScope(scope, fn.value);
 }
 
 const opMapping = {

@@ -2,7 +2,7 @@ export type Program = Declaration[];
 
 export type Declaration = Statement;
 
-export type Statement = Assignment | FunctionCall;
+export type Statement = Assignment | FunctionCall | FunctionDefinition;
 
 export interface Assignment {
   _: "assignment";
@@ -10,6 +10,20 @@ export interface Assignment {
   op: AssignmentOp;
   expr: Expression;
 }
+
+export interface FunctionDefinition {
+  _: "function";
+  name: Name;
+  args: FunctionArg[];
+  program: Program;
+}
+
+export interface FunctionArg {
+  _: "arg";
+  type: "any" | "bool" | "function" | "number" | "string";
+  name: Name;
+}
+export type FunctionArgType = FunctionArg["type"];
 
 export type AssignmentOp = "=" | "+=" | "-=" | "*=" | "/=" | "^=";
 

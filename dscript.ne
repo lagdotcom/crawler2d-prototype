@@ -49,6 +49,7 @@ decl -> stmt {% id %}
 
 stmt -> assignment {% id %}
       | call {% id %}
+      | function_def {% id %}
 
 assignment -> name _ assignop _ expr {% ([name,,op,,expr]) => ({ _: 'assignment', name, op, expr }) %}
 assignop -> "=" {% val %}
@@ -57,6 +58,14 @@ assignop -> "=" {% val %}
           | "*=" {% val %}
           | "/=" {% val %}
           | "^=" {% val %}
+
+function_def -> "function" __ name "(" function_args ")" document __ "end" {% ([,,name,,args,,program]) => ({ _: 'function', name, args, program }) %}
+
+function_args -> null {% () => [] %}
+               | function_arg
+               | function_args _ "," _ function_arg {% ([list,,,,value]) => list.concat([value]) %}
+
+function_arg -> vtype __ name {% ([type,,name]) => ({ _: 'arg', type, name }) %}
 
 expr -> maths {% id %}
 
@@ -110,6 +119,12 @@ literal_boolean -> "true" {% () => ({ _: 'bool', value: true }) %}
 
 literal_string -> %sqstring {% ([tok]) => ({ _: 'string', value: tok.value.slice(1, -1) }) %}
                 | %dqstring {% ([tok]) => ({ _: 'string', value: tok.value.slice(1, -1) }) %}
+
+vtype -> "any" {% val %}
+       | "bool" {% val %}
+       | "function" {% val %}
+       | "number" {% val %}
+       | "string" {% val %}
 
 name -> %word {% ([tok]) => ({ _: 'id', value: tok.value }) %}
 
