@@ -1,3 +1,5 @@
+import CDNModule from "./CDNModule.mjs";
+
 /** @type {import('esbuild').BuildOptions} */
 const config = {
   entryPoints: ["src/index.ts"],
@@ -5,6 +7,7 @@ const config = {
   sourcemap: true,
   outfile: "docs/bundle.js",
   // minify: true,
-  loader: { ".json": "file", ".png": "file" },
+  plugins: [CDNModule],
+  loader: { ".dscript": "file", ".json": "file", ".png": "file" },
 };
 export default config;

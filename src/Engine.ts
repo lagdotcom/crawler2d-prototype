@@ -2,12 +2,14 @@ import { move, rotate, xy } from "./tools/geometry";
 
 import Dir from "./types/Dir";
 import DungeonRenderer from "./DungeonRenderer";
+import EngineScripting from "./EngineScripting";
 import MinimapRenderer from "./MinimapRenderer";
 import ResourceManager from "./ResourceManager";
 import Soon from "./Soon";
 import World from "./types/World";
 import XY from "./types/XY";
 import clone from "nanoclone";
+import compile from "./DScript/compiler";
 import convertGridCartographerMap from "./convertGridCartographerMap";
 import getCanvasContext from "./tools/getCanvasContext";
 
@@ -23,6 +25,7 @@ export default class Engine {
   position: XY;
   renderSetup?: RenderSetup;
   res: ResourceManager;
+  scripting: EngineScripting;
   world?: World;
   worldSize: XY;
 
@@ -34,6 +37,7 @@ export default class Engine {
     this.worldSize = xy(0, 0);
     this.res = new ResourceManager();
     this.drawSoon = new Soon(this.render);
+    this.scripting = new EngineScripting(this);
 
     canvas.addEventListener("keyup", (e) => {
       if (e.key === "ArrowLeft") this.turn(-1);
@@ -68,12 +72,21 @@ export default class Engine {
     this.renderSetup = undefined;
 
     const map = await this.res.loadGCMap(jsonUrl);
-    const { atlas, cells, start, facing } = convertGridCartographerMap(
+    const { atlas, cells, scripts, start, facing } = convertGridCartographerMap(
       map,
       region,
       floor
     );
     if (!atlas) throw new Error(`${jsonUrl} did not contain #ATLAS`);
+
+    // TODO how about clearing old script stuff...?
+    const codeFiles = await Promise.all(
+      scripts.map((url) => this.res.loadScript(url))
+    );
+    for (const code of codeFiles) {
+      const program = compile(code);
+      this.scripting.run(program[0]);
+    }
 
     return this.loadWorld({ atlas, cells, start, facing });
   }
@@ -124,8 +137,11 @@ export default class Engine {
 
   move(dir: Dir) {
     if (this.canMove(dir)) {
+      const old = this.position;
       this.position = move(this.position, dir);
       this.draw();
+
+      this.scripting.onEnter(this.position, old);
     }
   }
 

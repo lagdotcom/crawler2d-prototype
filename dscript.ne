@@ -50,6 +50,7 @@ decl -> stmt {% id %}
 stmt -> assignment {% id %}
       | call {% id %}
       | function_def {% id %}
+      | if_stmt {% id %}
 
 assignment -> name _ assignop _ expr {% ([name,,op,,expr]) => ({ _: 'assignment', name, op, expr }) %}
 assignop -> "=" {% val %}
@@ -66,6 +67,8 @@ function_args -> null {% () => [] %}
                | function_args _ "," _ function_arg {% ([list,,,,value]) => list.concat([value]) %}
 
 function_arg -> vtype __ name {% ([type,,name]) => ({ _: 'arg', type, name }) %}
+
+if_stmt -> "if" __ expr __ "then" document __ "end" {% ([,,expr,,,positive]) => ({ _: 'if', expr, positive }) %}
 
 expr -> maths {% id %}
 

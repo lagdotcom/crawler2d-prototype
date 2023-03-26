@@ -12,6 +12,7 @@ export interface WorldCell {
   ceiling?: number;
   floor?: number;
   sides: Partial<Record<Dir, WorldSide>>;
+  tags: string[];
 }
 
 export interface AtlasReference {

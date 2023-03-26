@@ -1,5 +1,30 @@
 "use strict";
 (() => {
+  var __create = Object.create;
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __commonJS = (cb, mod) => function __require() {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod
+  ));
   var __async = (__this, __arguments, generator) => {
     return new Promise((resolve, reject) => {
       var fulfilled = (value) => {
@@ -20,6 +45,20 @@
       step((generator = generator.apply(__this, __arguments)).next());
     });
   };
+
+  // globalExternal:nearley
+  var require_nearley = __commonJS({
+    "globalExternal:nearley"(exports, module) {
+      module.exports = globalThis.nearley;
+    }
+  });
+
+  // globalExternal:moo
+  var require_moo = __commonJS({
+    "globalExternal:moo"(exports, module) {
+      module.exports = globalThis.moo;
+    }
+  });
 
   // src/types/Dir.ts
   var Dir = /* @__PURE__ */ ((Dir2) => {
@@ -137,7 +176,7 @@
   }
 
   // src/DungeonRenderer.ts
-  var tileTag = (id, type, tile) => `${type}${id}:${tile.x},${tile.z}`;
+  var tileTag = (id2, type, tile) => `${type}${id2}:${tile.x},${tile.z}`;
   var DungeonRenderer = class {
     constructor(g, dungeon, atlasImage) {
       this.g = g;
@@ -186,8 +225,8 @@
       }
       return Promise.all(promises);
     }
-    getImage(id, type, x, z) {
-      const tag = tileTag(id, type, { x, z });
+    getImage(id2, type, x, z) {
+      const tag = tileTag(id2, type, { x, z });
       return this.imageData.get(tag);
     }
     flipImage(w, h, data) {
@@ -232,13 +271,13 @@
       const dy = result.screen.y;
       this.g.ctx.drawImage(result.image, dx, dy);
     }
-    drawImage(id, type, x, z) {
-      const result = this.getImage(id, type, x, z);
+    drawImage(id2, type, x, z) {
+      const result = this.getImage(id2, type, x, z);
       if (result)
         this.draw(result);
     }
-    drawFrontImage(id, type, x, z) {
-      const result = this.getImage(id, type, 0, z);
+    drawFrontImage(id2, type, x, z) {
+      const result = this.getImage(id2, type, 0, z);
       if (result)
         this.drawFront(result, x);
     }
@@ -278,6 +317,292 @@
           this.drawImage(cell.ceiling, "ceiling", pos.dx, pos.dz);
         if (cell.floor)
           this.drawImage(cell.floor, "floor", pos.dx, pos.dz);
+      }
+    }
+  };
+
+  // src/DScript/logic.ts
+  function bool(value) {
+    return { _: "bool", value };
+  }
+  function num(value) {
+    return { _: "number", value };
+  }
+  function str(value) {
+    return { _: "string", value };
+  }
+  function box(value) {
+    switch (typeof value) {
+      case "undefined":
+        return void 0;
+      case "boolean":
+        return bool(value);
+      case "number":
+        return num(value);
+      case "string":
+        return str(value);
+      default:
+        throw new Error(`Cannot box ${typeof value}`);
+    }
+  }
+  function unbox(value) {
+    if (value._ === "function" || value._ === "native")
+      return value;
+    return value.value;
+  }
+  function truthy(value) {
+    return !!value;
+  }
+  function unary(op, value) {
+    switch (op) {
+      case "-":
+        if (value._ === "number")
+          return num(-value.value);
+        throw new Error(`Cannot negate a ${value._}`);
+      case "not":
+        return bool(!truthy(value.value));
+    }
+  }
+  function binary(op, left, right) {
+    switch (op) {
+      case "+":
+        if (left._ === "string" && right._ === "string")
+          return str(left.value + right.value);
+        if (left._ === "number" && right._ === "number")
+          return num(left.value + right.value);
+        throw new Error(`Cannot add ${left._} and ${right._}`);
+      case "-":
+        if (left._ === "number" && right._ === "number")
+          return num(left.value - right.value);
+        throw new Error(`Cannot subtract ${left._} and ${right._}`);
+      case "*":
+        if (left._ === "number" && right._ === "number")
+          return num(left.value * right.value);
+        throw new Error(`Cannot multiply ${left._} and ${right._}`);
+      case "/":
+        if (left._ === "number" && right._ === "number")
+          return num(left.value / right.value);
+        throw new Error(`Cannot divide ${left._} and ${right._}`);
+      case "^":
+        if (left._ === "number" && right._ === "number")
+          return num(Math.pow(left.value, right.value));
+        throw new Error(`Cannot exponentiate ${left._} and ${right._}`);
+      case "==":
+        return bool(left.value === right.value);
+      case "!=":
+        return bool(left.value !== right.value);
+      case ">":
+        return bool(left.value > right.value);
+      case ">=":
+        return bool(left.value >= right.value);
+      case "<":
+        return bool(left.value < right.value);
+      case "<=":
+        return bool(left.value <= right.value);
+      case "and":
+        return truthy(left.value) ? right : left;
+      case "or":
+        return truthy(left.value) ? left : right;
+      case "xor": {
+        const lt = truthy(left.value);
+        const rt = truthy(right.value);
+        return bool(!(lt === rt));
+      }
+    }
+  }
+  function convertToFunction(stmt) {
+    return {
+      _: "function",
+      name: stmt.name.value,
+      args: stmt.args,
+      value: stmt.program
+    };
+  }
+  function runInScope(scope, prg) {
+    for (const stmt of prg) {
+      switch (stmt._) {
+        case "assignment":
+          assignment(scope, stmt);
+          break;
+        case "call":
+          callFunction(
+            scope,
+            lookup(scope, stmt.fn.value),
+            stmt.args.map((arg) => evaluate(scope, arg))
+          );
+          break;
+        case "function":
+          scope.env.set(stmt.name.value, convertToFunction(stmt));
+          break;
+        case "if": {
+          if (truthy(evaluate(scope, stmt.expr).value)) {
+            runInScope(scope, stmt.positive);
+          } else if (stmt.negative) {
+            runInScope(scope, stmt.negative);
+          }
+          break;
+        }
+        default:
+          throw new Error(`${stmt._} statements not implemented`);
+      }
+    }
+  }
+  function lookup(scope, name, canBeNew = false) {
+    let found;
+    let current = scope;
+    while (current) {
+      found = current.env.get(name);
+      if (found)
+        break;
+      current = current.parent;
+    }
+    if (!found && !canBeNew)
+      throw new Error(`Could not resolve: ${name}`);
+    return found;
+  }
+  function evaluate(scope, expr) {
+    switch (expr._) {
+      case "bool":
+      case "number":
+      case "string":
+        return expr;
+      case "id":
+        return lookup(scope, expr.value);
+      case "unary":
+        return unary(expr.op, evaluate(scope, expr.value));
+      case "binary":
+        return binary(
+          expr.op,
+          evaluate(scope, expr.left),
+          evaluate(scope, expr.right)
+        );
+      case "call": {
+        const value = callFunction(
+          scope,
+          lookup(scope, expr.fn.value),
+          expr.args.map((arg) => evaluate(scope, arg))
+        );
+        if (!value)
+          throw new Error(`${expr.fn.value}() returned no value`);
+        return value;
+      }
+    }
+  }
+  function isTypeMatch(want, got) {
+    if (want === "any")
+      return true;
+    if (want === got)
+      return true;
+    if (want === "function" && got === "native")
+      return true;
+    return false;
+  }
+  function checkFunctionArgs(fn, got) {
+    const argTypes = fn._ === "function" ? fn.args.map((arg) => arg.type) : fn.args;
+    const fail = () => {
+      throw new Error(
+        `${fn.name} wants (${argTypes.join(", ")}) but got (${got.map((arg) => arg._).join(", ")})`
+      );
+    };
+    if (argTypes.length !== got.length)
+      fail();
+    for (let i = 0; i < argTypes.length; i++) {
+      if (!isTypeMatch(argTypes[i], got[i]._))
+        fail();
+    }
+  }
+  function callFunction(parent, fn, args) {
+    if (fn._ !== "function" && fn._ !== "native")
+      throw new Error(`Cannot call a ${fn._}`);
+    checkFunctionArgs(fn, args);
+    if (fn._ === "native") {
+      const result = fn.value.call(void 0, ...args.map(unbox));
+      return box(result);
+    }
+    const scope = { env: /* @__PURE__ */ new Map(), parent };
+    for (let i = 0; i < args.length; i++)
+      scope.env.set(fn.args[i].name.value, args[i]);
+    runInScope(scope, fn.value);
+  }
+  var opMapping = {
+    "+=": "+",
+    "-=": "-",
+    "*=": "*",
+    "/=": "/",
+    "^=": "^"
+  };
+  function assignment(scope, stmt) {
+    const right = evaluate(scope, stmt.expr);
+    const left = lookup(scope, stmt.name.value, true);
+    if (!left) {
+      if (stmt.op === "=") {
+        scope.env.set(stmt.name.value, right);
+        return;
+      }
+      throw new Error(`Could not resolve: ${stmt.name.value}`);
+    }
+    if (left._ !== right._)
+      throw new Error(`Cannot assign ${right._} to ${left._}`);
+    if (stmt.op === "=")
+      left.value = right.value;
+    else
+      left.value = binary(opMapping[stmt.op], left, right).value;
+  }
+
+  // src/DScript/host.ts
+  var DScriptHost = class {
+    constructor() {
+      this.env = /* @__PURE__ */ new Map();
+    }
+    addNative(name, args, value) {
+      this.env.set(name, { _: "native", name, args, value });
+    }
+  };
+
+  // src/EngineScripting.ts
+  var EngineScripting = class extends DScriptHost {
+    constructor(g) {
+      super();
+      this.g = g;
+      this.onTagEnter = /* @__PURE__ */ new Map();
+      this.addNative(
+        "debug",
+        ["any"],
+        (thing) => console.log("[debug]", thing)
+      );
+      this.addNative(
+        "onTagEnter",
+        ["string", "function"],
+        (tag, cb) => {
+          this.onTagEnter.set(tag, cb);
+        }
+      );
+      this.addNative(
+        "tileHasTag",
+        ["number", "number", "string"],
+        (x, y, tag) => {
+          const cell = this.g.getCell(x, y);
+          return cell == null ? void 0 : cell.tags.includes(tag);
+        }
+      );
+    }
+    run(program) {
+      runInScope(this, program);
+    }
+    runCallback(fn, ...args) {
+      if (fn._ === "function")
+        callFunction(this, fn, args);
+      else
+        fn.value.call(void 0, ...args);
+    }
+    onEnter(newPos, oldPos) {
+      const tile = this.g.getCell(newPos.x, newPos.y);
+      if (!tile)
+        return;
+      for (const tag of tile.tags) {
+        const cb = this.onTagEnter.get(tag);
+        if (cb)
+          this.runCallback(cb, num(oldPos.x), num(oldPos.y));
       }
     }
   };
@@ -362,6 +687,7 @@
       this.atlases = {};
       this.images = {};
       this.maps = {};
+      this.scripts = {};
     }
     start(src, promise) {
       this.promises.set(src, promise);
@@ -405,6 +731,18 @@
         fetch(src).then((r) => r.json()).then((map) => {
           this.maps[src] = map;
           return map;
+        })
+      );
+    }
+    loadScript(src) {
+      const res = this.promises.get(src);
+      if (res)
+        return res;
+      return this.start(
+        src,
+        fetch(src).then((r) => r.text()).then((script) => {
+          this.scripts[src] = script;
+          return script;
         })
       );
     }
@@ -470,16 +808,140 @@
     return clone(src, /* @__PURE__ */ new Map());
   }
 
-  // res/atlas/minma1.png
-  var minma1_default = "./minma1-VI5UXWCY.png";
+  // src/DScript/compiler.ts
+  var import_nearley = __toESM(require_nearley());
 
-  // res/atlas/minma1.json
-  var minma1_default2 = "./minma1-6Z2CTON5.json";
-
-  // src/resources.ts
-  var AtlasResources = {
-    minma1: { image: minma1_default, json: minma1_default2 }
+  // src/DScript/grammar.ts
+  var import_moo = __toESM(require_moo());
+  function id(d) {
+    return d[0];
+  }
+  var val = ([tok]) => tok.value;
+  var lexer = import_moo.default.compile({
+    ws: { match: /[ \t\n\r]+/, lineBreaks: true },
+    comment: { match: /;[^\n]*\n/, lineBreaks: true },
+    number: /[0-9]+/,
+    sqstring: /'.*?'/,
+    dqstring: /".*?"/,
+    keywords: ["else", "end", "enum", "false", "if", "not", "query", "return", "true"],
+    word: { match: /[a-zA-Z][a-zA-Z0-9_]*/ },
+    colon: ":",
+    comma: ",",
+    lp: "(",
+    rp: ")",
+    dot: ".",
+    le: "<=",
+    lt: "<",
+    ge: ">=",
+    gt: ">",
+    eq: "==",
+    ne: "!=",
+    plusequals: "+=",
+    minusequals: "-=",
+    timesequals: "*=",
+    divideequals: "/=",
+    expequals: "^=",
+    equals: "=",
+    plus: "+",
+    minus: "-",
+    times: "*",
+    divide: "/",
+    exp: "^",
+    qm: "?"
+  });
+  var grammar = {
+    Lexer: lexer,
+    ParserRules: [
+      { "name": "document", "symbols": ["_", "program"], "postprocess": ([, prog]) => prog },
+      { "name": "program$ebnf$1", "symbols": [] },
+      { "name": "program$ebnf$1", "symbols": ["program$ebnf$1", "declp"], "postprocess": (d) => d[0].concat([d[1]]) },
+      { "name": "program", "symbols": ["program$ebnf$1"], "postprocess": id },
+      { "name": "declp", "symbols": ["decl", "_"], "postprocess": id },
+      { "name": "decl", "symbols": ["stmt"], "postprocess": id },
+      { "name": "stmt", "symbols": ["assignment"], "postprocess": id },
+      { "name": "stmt", "symbols": ["call"], "postprocess": id },
+      { "name": "stmt", "symbols": ["function_def"], "postprocess": id },
+      { "name": "stmt", "symbols": ["if_stmt"], "postprocess": id },
+      { "name": "assignment", "symbols": ["name", "_", "assignop", "_", "expr"], "postprocess": ([name, , op, , expr]) => ({ _: "assignment", name, op, expr }) },
+      { "name": "assignop", "symbols": [{ "literal": "=" }], "postprocess": val },
+      { "name": "assignop", "symbols": [{ "literal": "+=" }], "postprocess": val },
+      { "name": "assignop", "symbols": [{ "literal": "-=" }], "postprocess": val },
+      { "name": "assignop", "symbols": [{ "literal": "*=" }], "postprocess": val },
+      { "name": "assignop", "symbols": [{ "literal": "/=" }], "postprocess": val },
+      { "name": "assignop", "symbols": [{ "literal": "^=" }], "postprocess": val },
+      { "name": "function_def", "symbols": [{ "literal": "function" }, "__", "name", { "literal": "(" }, "function_args", { "literal": ")" }, "document", "__", { "literal": "end" }], "postprocess": ([, , name, , args, , program]) => ({ _: "function", name, args, program }) },
+      { "name": "function_args", "symbols": [], "postprocess": () => [] },
+      { "name": "function_args", "symbols": ["function_arg"] },
+      { "name": "function_args", "symbols": ["function_args", "_", { "literal": "," }, "_", "function_arg"], "postprocess": ([list, , , , value]) => list.concat([value]) },
+      { "name": "function_arg", "symbols": ["vtype", "__", "name"], "postprocess": ([type, , name]) => ({ _: "arg", type, name }) },
+      { "name": "if_stmt", "symbols": [{ "literal": "if" }, "__", "expr", "__", { "literal": "then" }, "document", "__", { "literal": "end" }], "postprocess": ([, , expr, , , positive]) => ({ _: "if", expr, positive }) },
+      { "name": "expr", "symbols": ["maths"], "postprocess": id },
+      { "name": "maths", "symbols": ["logic"], "postprocess": id },
+      { "name": "logic", "symbols": ["logic", "_", "logicop", "_", "boolean"], "postprocess": ([left, , op, , right]) => ({ _: "binary", left, op, right }) },
+      { "name": "logic", "symbols": ["boolean"], "postprocess": id },
+      { "name": "boolean", "symbols": ["boolean", "_", "boolop", "_", "sum"], "postprocess": ([left, , op, , right]) => ({ _: "binary", left, op, right }) },
+      { "name": "boolean", "symbols": ["sum"], "postprocess": id },
+      { "name": "sum", "symbols": ["sum", "_", "sumop", "_", "product"], "postprocess": ([left, , op, , right]) => ({ _: "binary", left, op, right }) },
+      { "name": "sum", "symbols": ["product"], "postprocess": id },
+      { "name": "product", "symbols": ["product", "_", "mulop", "_", "exp"], "postprocess": ([left, , op, , right]) => ({ _: "binary", left, op, right }) },
+      { "name": "product", "symbols": ["exp"], "postprocess": id },
+      { "name": "exp", "symbols": ["unary", "_", "expop", "_", "exp"], "postprocess": ([left, , op, , right]) => ({ _: "binary", left, op, right }) },
+      { "name": "exp", "symbols": ["unary"], "postprocess": id },
+      { "name": "unary", "symbols": [{ "literal": "-" }, "value"], "postprocess": ([op, value]) => ({ _: "unary", op: op.value, value }) },
+      { "name": "unary", "symbols": [{ "literal": "not" }, "_", "value"], "postprocess": ([op, , value]) => ({ _: "unary", op: op.value, value }) },
+      { "name": "unary", "symbols": ["value"], "postprocess": id },
+      { "name": "logicop", "symbols": [{ "literal": "and" }], "postprocess": val },
+      { "name": "logicop", "symbols": [{ "literal": "or" }], "postprocess": val },
+      { "name": "logicop", "symbols": [{ "literal": "xor" }], "postprocess": val },
+      { "name": "boolop", "symbols": [{ "literal": ">" }], "postprocess": val },
+      { "name": "boolop", "symbols": [{ "literal": ">=" }], "postprocess": val },
+      { "name": "boolop", "symbols": [{ "literal": "<" }], "postprocess": val },
+      { "name": "boolop", "symbols": [{ "literal": "<=" }], "postprocess": val },
+      { "name": "boolop", "symbols": [{ "literal": "==" }], "postprocess": val },
+      { "name": "boolop", "symbols": [{ "literal": "!=" }], "postprocess": val },
+      { "name": "sumop", "symbols": [{ "literal": "+" }], "postprocess": val },
+      { "name": "sumop", "symbols": [{ "literal": "-" }], "postprocess": val },
+      { "name": "mulop", "symbols": [{ "literal": "*" }], "postprocess": val },
+      { "name": "mulop", "symbols": [{ "literal": "/" }], "postprocess": val },
+      { "name": "expop", "symbols": [{ "literal": "^" }], "postprocess": val },
+      { "name": "value", "symbols": ["literal_number"], "postprocess": id },
+      { "name": "value", "symbols": ["literal_boolean"], "postprocess": id },
+      { "name": "value", "symbols": ["literal_string"], "postprocess": id },
+      { "name": "value", "symbols": ["name"], "postprocess": id },
+      { "name": "value", "symbols": ["call"], "postprocess": id },
+      { "name": "call", "symbols": ["name", { "literal": "(" }, "call_args", { "literal": ")" }], "postprocess": ([fn, , args]) => ({ _: "call", fn, args }) },
+      { "name": "call_args", "symbols": [], "postprocess": () => [] },
+      { "name": "call_args", "symbols": ["expr"] },
+      { "name": "call_args", "symbols": ["call_args", "_", { "literal": "," }, "_", "expr"], "postprocess": ([list, , , , value]) => list.concat([value]) },
+      { "name": "literal_number", "symbols": [lexer.has("number") ? { type: "number" } : number], "postprocess": ([tok]) => ({ _: "number", value: Number(tok.value) }) },
+      { "name": "literal_number", "symbols": [lexer.has("number") ? { type: "number" } : number, { "literal": "." }, lexer.has("number") ? { type: "number" } : number], "postprocess": ([whole, , frac]) => ({ _: "number", value: Number(whole.value + "." + frac.value) }) },
+      { "name": "literal_boolean", "symbols": [{ "literal": "true" }], "postprocess": () => ({ _: "bool", value: true }) },
+      { "name": "literal_boolean", "symbols": [{ "literal": "false" }], "postprocess": () => ({ _: "bool", value: false }) },
+      { "name": "literal_string", "symbols": [lexer.has("sqstring") ? { type: "sqstring" } : sqstring], "postprocess": ([tok]) => ({ _: "string", value: tok.value.slice(1, -1) }) },
+      { "name": "literal_string", "symbols": [lexer.has("dqstring") ? { type: "dqstring" } : dqstring], "postprocess": ([tok]) => ({ _: "string", value: tok.value.slice(1, -1) }) },
+      { "name": "vtype", "symbols": [{ "literal": "any" }], "postprocess": val },
+      { "name": "vtype", "symbols": [{ "literal": "bool" }], "postprocess": val },
+      { "name": "vtype", "symbols": [{ "literal": "function" }], "postprocess": val },
+      { "name": "vtype", "symbols": [{ "literal": "number" }], "postprocess": val },
+      { "name": "vtype", "symbols": [{ "literal": "string" }], "postprocess": val },
+      { "name": "name", "symbols": [lexer.has("word") ? { type: "word" } : word], "postprocess": ([tok]) => ({ _: "id", value: tok.value }) },
+      { "name": "_", "symbols": ["ws"], "postprocess": () => null },
+      { "name": "_", "symbols": ["comment"], "postprocess": () => null },
+      { "name": "_", "symbols": [], "postprocess": () => null },
+      { "name": "__", "symbols": ["ws"], "postprocess": () => null },
+      { "name": "ws", "symbols": [lexer.has("ws") ? { type: "ws" } : ws], "postprocess": () => null },
+      { "name": "comment", "symbols": ["_", lexer.has("comment") ? { type: "comment" } : comment, "_"], "postprocess": () => null }
+    ],
+    ParserStart: "document"
   };
+  var grammar_default = grammar;
+
+  // src/DScript/compiler.ts
+  function compile(src) {
+    const p = new import_nearley.Parser(import_nearley.Grammar.fromCompiled(grammar_default));
+    p.feed(src);
+    return p.finish();
+  }
 
   // src/Grid.ts
   var Grid = class {
@@ -519,6 +981,28 @@
     }
   };
 
+  // res/map.dscript
+  var map_default = "./map-SPHBDNOG.dscript";
+
+  // res/atlas/minma1.png
+  var minma1_default = "./minma1-VI5UXWCY.png";
+
+  // res/atlas/minma1.json
+  var minma1_default2 = "./minma1-6Z2CTON5.json";
+
+  // src/resources.ts
+  var Resources = {
+    "minma1.png": minma1_default,
+    "minma1.json": minma1_default2,
+    "map.dscript": map_default
+  };
+  function getResourceURL(id2) {
+    const value = Resources[id2];
+    if (!value)
+      throw new Error(`Invalid resource ID: ${id2}`);
+    return value;
+  }
+
   // src/convertGridCartographerMap.ts
   var wall = { wall: true, solid: true };
   var door = { decal: "Door", wall: true };
@@ -538,9 +1022,11 @@
     constructor() {
       this.decals = /* @__PURE__ */ new Map();
       this.definitions = /* @__PURE__ */ new Map();
-      this.textures = /* @__PURE__ */ new Map();
-      this.start = xy(0, 0);
       this.facing = Dir_default.N;
+      this.grid = new Grid(() => ({ sides: {}, tags: [] }));
+      this.scripts = [];
+      this.start = xy(0, 0);
+      this.textures = /* @__PURE__ */ new Map();
     }
     convert(j, region = 0, floor = 0) {
       var _a, _b;
@@ -550,7 +1036,6 @@
       const f = r.floors.find((f2) => f2.index === floor);
       if (!f)
         throw new Error(`No such floor: ${floor}`);
-      const grid = new Grid(() => ({ sides: {} }));
       for (const note of f.notes) {
         const { __data, x, y } = note;
         for (const line of (_a = __data == null ? void 0 : __data.split("\n")) != null ? _a : []) {
@@ -564,7 +1049,7 @@
         let x = f.tiles.bounds.x0 + row.start;
         const y = r.setup.origin === "tl" ? row.y : f.tiles.bounds.height - (row.y - f.tiles.bounds.y0) - 1;
         for (const tile of row.tdata) {
-          const mt = grid.getOrDefault({ x, y });
+          const mt = this.grid.getOrDefault({ x, y });
           if (tile.t)
             mt.floor = this.getTexture(tile.tc);
           if (tile.c)
@@ -575,7 +1060,7 @@
               tile.bc,
               mt,
               Dir_default.S,
-              grid.getOrDefault({ x, y: y + 1 }),
+              this.grid.getOrDefault({ x, y: y + 1 }),
               Dir_default.N
             );
           if (tile.r)
@@ -584,15 +1069,15 @@
               tile.rc,
               mt,
               Dir_default.E,
-              grid.getOrDefault({ x: x + 1, y }),
+              this.grid.getOrDefault({ x: x + 1, y }),
               Dir_default.W
             );
           x++;
         }
       }
-      const { atlas, start, facing } = this;
-      const cells = grid.asArray();
-      return { atlas, cells, start, facing };
+      const { atlas, scripts, start, facing } = this;
+      const cells = this.grid.asArray();
+      return { atlas, cells, scripts, start, facing };
     }
     getTexture(index = 0) {
       const texture = this.textures.get(index);
@@ -604,15 +1089,18 @@
       const def = this.definitions.get(s);
       if (typeof def !== "undefined")
         return def;
-      const num = Number(s);
-      if (!isNaN(num))
-        return num;
+      const num2 = Number(s);
+      if (!isNaN(num2))
+        return num2;
       throw new Error(`Could not evaluate: ${s}`);
     }
     applyCommand(cmd, arg, x, y) {
       switch (cmd) {
         case "#ATLAS":
-          this.atlas = AtlasResources[arg];
+          this.atlas = {
+            image: getResourceURL(arg + ".png"),
+            json: getResourceURL(arg + ".json")
+          };
           return;
         case "#DEFINE": {
           const [key, value] = arg.split(",");
@@ -635,6 +1123,16 @@
           this.start = { x, y };
           this.facing = dirFromInitial(arg);
           return;
+        case "#TAG": {
+          const t = this.grid.getOrDefault({ x, y });
+          for (const tag of arg.split(","))
+            t.tags.push(tag);
+          break;
+        }
+        case "#SCRIPT":
+          for (const id2 of arg.split(","))
+            this.scripts.push(getResourceURL(id2));
+          break;
         default:
           throw new Error(`Unknown command: ${cmd} ${arg} at (${x},${y})`);
       }
@@ -681,6 +1179,7 @@
       this.worldSize = xy(0, 0);
       this.res = new ResourceManager();
       this.drawSoon = new Soon(this.render);
+      this.scripting = new EngineScripting(this);
       canvas.addEventListener("keyup", (e) => {
         if (e.key === "ArrowLeft")
           this.turn(-1);
@@ -714,13 +1213,20 @@
       return __async(this, null, function* () {
         this.renderSetup = void 0;
         const map = yield this.res.loadGCMap(jsonUrl);
-        const { atlas, cells, start, facing } = convertGridCartographerMap(
+        const { atlas, cells, scripts, start, facing } = convertGridCartographerMap(
           map,
           region,
           floor
         );
         if (!atlas)
           throw new Error(`${jsonUrl} did not contain #ATLAS`);
+        const codeFiles = yield Promise.all(
+          scripts.map((url) => this.res.loadScript(url))
+        );
+        for (const code of codeFiles) {
+          const program = compile(code);
+          this.scripting.run(program[0]);
+        }
         return this.loadWorld({ atlas, cells, start, facing });
       });
     }
@@ -748,8 +1254,10 @@
     }
     move(dir) {
       if (this.canMove(dir)) {
+        const old = this.position;
         this.position = move(this.position, dir);
         this.draw();
+        this.scripting.onEnter(this.position, old);
       }
     }
     turn(clockwise) {
@@ -759,7 +1267,7 @@
   };
 
   // res/map.json
-  var map_default = "./map-4ZUIW2C6.json";
+  var map_default2 = "./map-W63ZI7ST.json";
 
   // src/index.ts
   function loadEngine(parent) {
@@ -787,7 +1295,7 @@
     };
     window.addEventListener("resize", onResize);
     onResize();
-    g.loadGCMap(map_default, 0, 1);
+    g.loadGCMap(map_default2, 0, 1);
   }
   window.addEventListener("load", () => loadEngine(document.body));
 })();

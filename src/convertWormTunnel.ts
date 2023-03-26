@@ -9,7 +9,7 @@ type WormTunnelCell = Pick<WorldCell, "object" | "ceiling" | "floor"> &
 export default function convertWormTunnel(
   src: WormTunnelCell[][]
 ): WorldCell[][] {
-  const grid = new Grid<WorldCell>(() => ({ sides: {} }));
+  const grid = new Grid<WorldCell>(() => ({ sides: {}, tags: [] }));
 
   for (let y = 0; y < src.length; y++) {
     for (let x = 0; x < src[y].length; x++) {

@@ -1,0 +1,7 @@
+function SlamShutEnter(number oldX, number oldY)
+  if tileHasTag(oldX, oldY, 'SlamShutBefore') then
+    debug('Slam Shut message!')
+  end
+end
+
+onTagEnter('SlamShut', SlamShutEnter)

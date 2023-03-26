@@ -2,10 +2,10 @@ import { AtlasReference, WorldCell } from "./types/World";
 import { Edge, GCMap } from "./types/GCMap";
 import { dirFromInitial, xy } from "./tools/geometry";
 
-import { AtlasResources } from "./resources";
 import Dir from "./types/Dir";
 import Grid from "./Grid";
 import XY from "./types/XY";
+import { getResourceURL } from "./resources";
 
 interface EdgeSide {
   decal?: string;
@@ -38,30 +38,28 @@ class GCMapConverter {
   atlas?: AtlasReference;
   decals: Map<string, number>;
   definitions: Map<string, number>;
-  textures: Map<number, number>;
-  start: XY;
   facing: Dir;
+  grid: Grid<WorldCell>;
+  scripts: string[];
+  start: XY;
+  textures: Map<number, number>;
 
   constructor() {
     this.decals = new Map();
     this.definitions = new Map();
-    this.textures = new Map();
-    this.start = xy(0, 0);
     this.facing = Dir.N;
+    this.grid = new Grid<WorldCell>(() => ({ sides: {}, tags: [] }));
+    this.scripts = [];
+    this.start = xy(0, 0);
+    this.textures = new Map();
   }
 
-  convert(
-    j: GCMap,
-    region = 0,
-    floor = 0
-  ): { atlas?: AtlasReference; cells: WorldCell[][]; start: XY; facing: Dir } {
+  convert(j: GCMap, region = 0, floor = 0) {
     if (!(region in j.regions)) throw new Error(`No such region: ${region}`);
     const r = j.regions[region];
 
     const f = r.floors.find((f) => f.index === floor);
     if (!f) throw new Error(`No such floor: ${floor}`);
-
-    const grid = new Grid<WorldCell>(() => ({ sides: {} }));
 
     for (const note of f.notes) {
       const { __data, x, y } = note;
@@ -82,7 +80,7 @@ class GCMapConverter {
           : f.tiles.bounds.height - (row.y - f.tiles.bounds.y0) - 1;
 
       for (const tile of row.tdata) {
-        const mt = grid.getOrDefault({ x, y });
+        const mt = this.grid.getOrDefault({ x, y });
         if (tile.t) mt.floor = this.getTexture(tile.tc);
 
         // TODO different ceiling textures?
@@ -94,7 +92,7 @@ class GCMapConverter {
             tile.bc,
             mt,
             Dir.S,
-            grid.getOrDefault({ x, y: y + 1 }),
+            this.grid.getOrDefault({ x, y: y + 1 }),
             Dir.N
           );
 
@@ -104,7 +102,7 @@ class GCMapConverter {
             tile.rc,
             mt,
             Dir.E,
-            grid.getOrDefault({ x: x + 1, y: y }),
+            this.grid.getOrDefault({ x: x + 1, y: y }),
             Dir.W
           );
 
@@ -112,9 +110,9 @@ class GCMapConverter {
       }
     }
 
-    const { atlas, start, facing } = this;
-    const cells = grid.asArray();
-    return { atlas, cells, start, facing };
+    const { atlas, scripts, start, facing } = this;
+    const cells = this.grid.asArray();
+    return { atlas, cells, scripts, start, facing };
   }
 
   getTexture(index: number = 0) {
@@ -138,7 +136,10 @@ class GCMapConverter {
   applyCommand(cmd: string, arg: string, x: number, y: number) {
     switch (cmd) {
       case "#ATLAS":
-        this.atlas = AtlasResources[arg];
+        this.atlas = {
+          image: getResourceURL(arg + ".png"),
+          json: getResourceURL(arg + ".json"),
+        };
         return;
 
       case "#DEFINE": {
@@ -165,6 +166,16 @@ class GCMapConverter {
         this.start = { x, y };
         this.facing = dirFromInitial(arg);
         return;
+
+      case "#TAG": {
+        const t = this.grid.getOrDefault({ x, y });
+        for (const tag of arg.split(",")) t.tags.push(tag);
+        break;
+      }
+
+      case "#SCRIPT":
+        for (const id of arg.split(",")) this.scripts.push(getResourceURL(id));
+        break;
 
       default:
         throw new Error(`Unknown command: ${cmd} ${arg} at (${x},${y})`);

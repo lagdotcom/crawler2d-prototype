@@ -19,10 +19,9 @@ const host = new DScriptHost();
 host.addNative(
   "itIsAFunction",
   ["number", "bool", "string", "bool", "number"],
-  (a: number, b: boolean, c: string, d: string, e: number) => {
-    console.log("function called:", a, b, c, d, e);
-  }
+  (a: number, b: boolean, c: string, d: string, e: number) =>
+    console.log("function called:", a, b, c, d, e)
 );
 host.addNative("debug", ["any"], (thing: any) => console.log("[debug]", thing));
 runInScope(host, compiled[0]);
-console.log(host);
+console.log(host.env);

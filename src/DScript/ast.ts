@@ -2,7 +2,11 @@ export type Program = Declaration[];
 
 export type Declaration = Statement;
 
-export type Statement = Assignment | FunctionCall | FunctionDefinition;
+export type Statement =
+  | Assignment
+  | FunctionCall
+  | FunctionDefinition
+  | IfStatement;
 
 export interface Assignment {
   _: "assignment";
@@ -24,6 +28,13 @@ export interface FunctionArg {
   name: Name;
 }
 export type FunctionArgType = FunctionArg["type"];
+
+export interface IfStatement {
+  _: "if";
+  expr: Expression;
+  positive: Program;
+  negative?: Program;
+}
 
 export type AssignmentOp = "=" | "+=" | "-=" | "*=" | "/=" | "^=";
 

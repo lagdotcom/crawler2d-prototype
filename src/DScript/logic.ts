@@ -40,20 +40,22 @@ export interface Scope {
   env: Env;
 }
 
-function bool(value: boolean): LiteralBoolean {
+export function bool(value: boolean): LiteralBoolean {
   return { _: "bool", value };
 }
 
-function num(value: number): LiteralNumber {
+export function num(value: number): LiteralNumber {
   return { _: "number", value };
 }
 
-function str(value: string): LiteralString {
+export function str(value: string): LiteralString {
   return { _: "string", value };
 }
 
-function box(value: boolean | number | string): Literal {
+function box(value: any): Literal | undefined {
   switch (typeof value) {
+    case "undefined":
+      return undefined;
     case "boolean":
       return bool(value);
     case "number":
@@ -66,6 +68,8 @@ function box(value: boolean | number | string): Literal {
 }
 
 function unbox(value: RuntimeValue) {
+  if (value._ === "function" || value._ === "native") return value;
+
   return value.value;
 }
 
@@ -161,7 +165,7 @@ export function runInScope(scope: Scope, prg: Program) {
       case "call":
         callFunction(
           scope,
-          resolve(scope, stmt.fn.value),
+          lookup(scope, stmt.fn.value),
           stmt.args.map((arg) => evaluate(scope, arg))
         );
         break;
@@ -170,6 +174,15 @@ export function runInScope(scope: Scope, prg: Program) {
         scope.env.set(stmt.name.value, convertToFunction(stmt));
         break;
 
+      case "if": {
+        if (truthy(evaluate(scope, stmt.expr).value)) {
+          runInScope(scope, stmt.positive);
+        } else if (stmt.negative) {
+          runInScope(scope, stmt.negative);
+        }
+        break;
+      }
+
       default:
         // @ts-expect-error
         throw new Error(`${stmt._} statements not implemented`);
@@ -177,13 +190,13 @@ export function runInScope(scope: Scope, prg: Program) {
   }
 }
 
-function resolve(scope: Scope, name: string): RuntimeValue;
-function resolve(
+function lookup(scope: Scope, name: string): RuntimeValue;
+function lookup(
   scope: Scope,
   name: string,
   canBeNew: boolean
 ): RuntimeValue | undefined;
-function resolve(
+function lookup(
   scope: Scope,
   name: string,
   canBeNew = false
@@ -209,7 +222,7 @@ function evaluate(scope: Scope, expr: Expression): RuntimeValue {
       return expr;
 
     case "id":
-      return resolve(scope, expr.value);
+      return lookup(scope, expr.value);
 
     case "unary":
       return unary(expr.op, evaluate(scope, expr.value));
@@ -224,7 +237,7 @@ function evaluate(scope: Scope, expr: Expression): RuntimeValue {
     case "call": {
       const value = callFunction(
         scope,
-        resolve(scope, expr.fn.value),
+        lookup(scope, expr.fn.value),
         expr.args.map((arg) => evaluate(scope, arg))
       );
 
@@ -261,7 +274,7 @@ function checkFunctionArgs(fn: RuntimeFunction, got: RuntimeValue[]) {
   }
 }
 
-function callFunction(
+export function callFunction(
   parent: Scope,
   fn: RuntimeValue,
   args: RuntimeValue[]
@@ -273,7 +286,7 @@ function callFunction(
 
   if (fn._ === "native") {
     const result = fn.value.call(undefined, ...args.map(unbox));
-    return result ? box(result) : undefined;
+    return box(result);
   }
 
   const scope: Scope = { env: new Map(), parent };
@@ -294,7 +307,7 @@ const opMapping = {
 function assignment(scope: Scope, stmt: Assignment) {
   const right = evaluate(scope, stmt.expr);
 
-  const left = resolve(scope, stmt.name.value, true);
+  const left = lookup(scope, stmt.name.value, true);
 
   if (!left) {
     if (stmt.op === "=") {

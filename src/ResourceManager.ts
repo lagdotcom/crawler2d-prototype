@@ -7,6 +7,7 @@ export default class ResourceManager {
   atlases: Record<string, Atlas>;
   maps: Record<string, GCMap>;
   images: Record<string, HTMLImageElement>;
+  scripts: Record<string, string>;
 
   constructor() {
     this.promises = new Map();
@@ -14,6 +15,7 @@ export default class ResourceManager {
     this.atlases = {};
     this.images = {};
     this.maps = {};
+    this.scripts = {};
   }
 
   private start<T>(src: string, promise: Promise<T>) {
@@ -66,6 +68,21 @@ export default class ResourceManager {
         .then((map) => {
           this.maps[src] = map;
           return map;
+        })
+    );
+  }
+
+  loadScript(src: string): Promise<string> {
+    const res = this.promises.get(src);
+    if (res) return res as Promise<string>;
+
+    return this.start(
+      src,
+      fetch(src)
+        .then((r) => r.text())
+        .then((script) => {
+          this.scripts[src] = script;
+          return script;
         })
     );
   }

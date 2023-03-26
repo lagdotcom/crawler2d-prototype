@@ -1,8 +1,8 @@
 {
 	"export": {
 		"from": "2021.3",
-		"date": "2023-03-22",
-		"time": "10:52:51"
+		"date": "2023-03-26",
+		"time": "19:53:54"
 	},
 	"regions": [
 		{
@@ -375,7 +375,22 @@
 						{
 							"x": -2,
 							"y": 0,
-							"__data": "#ATLAS minma1\n#DEFINE tWhiteBrick,1\n#DEFINE tGreenDoor,2\n#STYLE 0,tWhiteBrick\n#DECAL Door,tWhiteBrick,tGreenDoor"
+							"__data": "#ATLAS minma1\n#DEFINE tWhiteBrick,1\n#DEFINE tGreenDoor,2\n#STYLE 0,tWhiteBrick\n#DECAL Door,tWhiteBrick,tGreenDoor\n#SCRIPT map.dscript"
+						},
+						{
+							"x": 7,
+							"y": 6,
+							"__data": "#TAG SlamShut"
+						},
+						{
+							"x": 6,
+							"y": 6,
+							"__data": "#TAG SlamShutBefore,SlamShut"
+						},
+						{
+							"x": 6,
+							"y": 7,
+							"__data": "#TAG SlamShutBefore"
 						}
 					]
 				}
