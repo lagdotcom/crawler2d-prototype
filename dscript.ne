@@ -48,6 +48,7 @@ declp -> decl _ {% id %}
 decl -> stmt {% id %}
 
 stmt -> assignment {% id %}
+      | call {% id %}
 
 assignment -> name _ assignop _ expr {% ([name,,op,,expr]) => ({ _: 'assignment', name, op, expr }) %}
 assignop -> "=" {% val %}
@@ -93,6 +94,13 @@ value -> literal_number {% id %}
        | literal_boolean {% id %}
        | literal_string {% id %}
        | name {% id %}
+       | call {% id %}
+
+call -> name "(" call_args ")" {% ([fn,,args]) => ({ _:'call', fn, args }) %}
+
+call_args -> null {% () => [] %}
+           | expr
+           | call_args _ "," _ expr {% ([list,,,,value]) => list.concat([value]) %}
 
 literal_number -> %number {% ([tok]) => ({ _: 'number', value: Number(tok.value) }) %}
                 | %number "." %number {% ([whole,,frac]) => ({ _: 'number', value: Number(whole.value + '.' + frac.value)}) %}

@@ -2,7 +2,7 @@ export type Program = Declaration[];
 
 export type Declaration = Statement;
 
-export type Statement = Assignment;
+export type Statement = Assignment | FunctionCall;
 
 export interface Assignment {
   _: "assignment";
@@ -13,7 +13,13 @@ export interface Assignment {
 
 export type AssignmentOp = "=" | "+=" | "-=" | "*=" | "/=" | "^=";
 
-export type Expression = Maths;
+export type Expression = Maths | FunctionCall;
+
+export interface FunctionCall {
+  _: "call";
+  fn: Name;
+  args: Expression[];
+}
 
 export type Maths = Binary | Unary | Value;
 
