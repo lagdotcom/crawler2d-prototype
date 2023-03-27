@@ -3,12 +3,19 @@ import { FunctionArgType } from "./ast";
 
 export default class DScriptHost {
   env: Env;
+  name: string;
 
   constructor() {
     this.env = new Map();
+    this.name = "<Host>";
   }
 
-  addNative(name: string, args: FunctionArgType[], value: Function) {
-    this.env.set(name, { _: "native", name, args, value });
+  addNative(
+    name: string,
+    args: FunctionArgType[],
+    type: FunctionArgType | undefined,
+    value: Function
+  ) {
+    this.env.set(name, { _: "native", name, args, type, value });
   }
 }

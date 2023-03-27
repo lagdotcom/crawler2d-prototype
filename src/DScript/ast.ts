@@ -6,7 +6,8 @@ export type Statement =
   | Assignment
   | FunctionCall
   | FunctionDefinition
-  | IfStatement;
+  | IfStatement
+  | ReturnStatement;
 
 export interface Assignment {
   _: "assignment";
@@ -19,6 +20,7 @@ export interface FunctionDefinition {
   _: "function";
   name: Name;
   args: FunctionArg[];
+  type?: FunctionArg["type"];
   program: Program;
 }
 
@@ -34,6 +36,11 @@ export interface IfStatement {
   expr: Expression;
   positive: Program;
   negative?: Program;
+}
+
+export interface ReturnStatement {
+  _: "return";
+  expr?: Expression;
 }
 
 export type AssignmentOp = "=" | "+=" | "-=" | "*=" | "/=" | "^=";

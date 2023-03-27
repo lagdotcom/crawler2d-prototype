@@ -3,7 +3,7 @@ import {
   RuntimeValue,
   callFunction,
   num,
-  runInScope,
+  run,
 } from "./DScript/logic";
 
 import DScriptHost from "./DScript/host";
@@ -19,13 +19,14 @@ export default class EngineScripting extends DScriptHost {
 
     this.onTagEnter = new Map();
 
-    this.addNative("debug", ["any"], (thing: any) =>
+    this.addNative("debug", ["any"], undefined, (thing: any) =>
       console.log("[debug]", thing)
     );
 
     this.addNative(
       "onTagEnter",
       ["string", "function"],
+      undefined,
       (tag: string, cb: RuntimeFunction) => {
         this.onTagEnter.set(tag, cb);
       }
@@ -34,6 +35,7 @@ export default class EngineScripting extends DScriptHost {
     this.addNative(
       "tileHasTag",
       ["number", "number", "string"],
+      "bool",
       (x: number, y: number, tag: string) => {
         const cell = this.g.getCell(x, y);
         return cell?.tags.includes(tag);
@@ -42,12 +44,12 @@ export default class EngineScripting extends DScriptHost {
   }
 
   run(program: Program) {
-    runInScope(this, program);
+    return run(this, program);
   }
 
   runCallback(fn: RuntimeFunction, ...args: RuntimeValue[]) {
-    if (fn._ === "function") callFunction(this, fn, args);
-    else fn.value.call(undefined, ...args);
+    if (fn._ === "function") return callFunction(this, fn, args);
+    else return fn.value.call(undefined, ...args);
   }
 
   onEnter(newPos: XY, oldPos: XY) {

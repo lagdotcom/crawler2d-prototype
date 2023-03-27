@@ -4,5 +4,5 @@
     "**/node_modules": true
   },
 
-  "cSpell.words": ["minma"]
+  "cSpell.words": ["minma", "nearley"]
 }

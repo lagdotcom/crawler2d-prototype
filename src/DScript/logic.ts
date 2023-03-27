@@ -13,12 +13,15 @@ import {
   UnaryOp,
 } from "./ast";
 
+import { assertUnreachable } from "../tools/assertUnreachable";
+
 export type LiteralType = Literal["_"];
 
 export interface NativeFunction {
   _: "native";
   name: string;
   args: FunctionArgType[];
+  type?: FunctionArgType;
   value: Function;
 }
 
@@ -26,6 +29,7 @@ export interface DScriptFunction {
   _: "function";
   name: string;
   args: FunctionArg[];
+  type?: FunctionArgType;
   value: Program;
 }
 
@@ -37,6 +41,10 @@ export type Env = Map<string, RuntimeValue>;
 
 export interface Scope {
   parent?: Scope;
+  type?: FunctionArgType;
+  exited?: boolean;
+  returned?: RuntimeValue;
+  name: string;
   env: Env;
 }
 
@@ -85,6 +93,9 @@ function unary(op: UnaryOp, value: RuntimeValue): RuntimeValue {
 
     case "not":
       return bool(!truthy(value.value));
+
+    default:
+      assertUnreachable(op, `unary operator ${op} not implemented`);
   }
 }
 
@@ -143,6 +154,9 @@ function binary(
       const rt = truthy(right.value);
       return bool(!(lt === rt));
     }
+
+    default:
+      assertUnreachable(op, `binary operator ${op} not implemented`);
   }
 }
 
@@ -151,11 +165,18 @@ function convertToFunction(stmt: FunctionDefinition): DScriptFunction {
     _: "function",
     name: stmt.name.value,
     args: stmt.args,
+    type: stmt.type,
     value: stmt.program,
   };
 }
 
-export function runInScope(scope: Scope, prg: Program) {
+export function run(scope: Scope, prg: Program) {
+  scope.exited = false;
+  scope.returned = undefined;
+  return runInScope(scope, prg, true);
+}
+
+function runInScope(scope: Scope, prg: Program, checkReturnValue: boolean) {
   for (const stmt of prg) {
     switch (stmt._) {
       case "assignment":
@@ -176,18 +197,38 @@ export function runInScope(scope: Scope, prg: Program) {
 
       case "if": {
         if (truthy(evaluate(scope, stmt.expr).value)) {
-          runInScope(scope, stmt.positive);
+          runInScope(scope, stmt.positive, false);
         } else if (stmt.negative) {
-          runInScope(scope, stmt.negative);
+          runInScope(scope, stmt.negative, false);
         }
         break;
       }
 
+      case "return": {
+        const returnValue = stmt.expr ? evaluate(scope, stmt.expr) : undefined;
+        if (isTypeMatch(scope.type, returnValue?._)) {
+          scope.exited = true;
+          scope.returned = returnValue;
+          return returnValue;
+        }
+        throw new Error(
+          `trying to return ${returnValue?._ ?? "void"} when '${
+            scope.name
+          }' requires ${scope.type ?? "void"}`
+        );
+      }
+
       default:
-        // @ts-expect-error
-        throw new Error(`${stmt._} statements not implemented`);
+        assertUnreachable(stmt, "Not all statement types implemented");
     }
+
+    if (scope.exited) break;
   }
+
+  if (checkReturnValue && !isTypeMatch(scope.type, scope.returned?._))
+    throw new Error(`exited '${scope.name}' without returning ${scope.type}`);
+
+  return scope.returned;
 }
 
 function lookup(scope: Scope, name: string): RuntimeValue;
@@ -244,10 +285,16 @@ function evaluate(scope: Scope, expr: Expression): RuntimeValue {
       if (!value) throw new Error(`${expr.fn.value}() returned no value`);
       return value;
     }
+
+    default:
+      assertUnreachable(expr, "not all expression types implemented");
   }
 }
 
-function isTypeMatch(want: FunctionArgType, got: RuntimeType) {
+function isTypeMatch(
+  want: FunctionArgType | undefined,
+  got: RuntimeType | undefined
+) {
   if (want === "any") return true;
 
   if (want === got) return true;
@@ -278,7 +325,7 @@ export function callFunction(
   parent: Scope,
   fn: RuntimeValue,
   args: RuntimeValue[]
-): Literal | undefined {
+): RuntimeValue | undefined {
   if (fn._ !== "function" && fn._ !== "native")
     throw new Error(`Cannot call a ${fn._}`);
 
@@ -289,12 +336,16 @@ export function callFunction(
     return box(result);
   }
 
-  const scope: Scope = { env: new Map(), parent };
+  const scope: Scope = {
+    parent,
+    name: `function ${fn.name}`,
+    env: new Map(),
+    type: fn.type,
+  };
   for (let i = 0; i < args.length; i++)
     scope.env.set(fn.args[i].name.value, args[i]);
 
-  // TODO DScript functions that return things
-  runInScope(scope, fn.value);
+  return run(scope, fn.value);
 }
 
 const opMapping = {

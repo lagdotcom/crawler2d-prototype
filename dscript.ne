@@ -9,7 +9,7 @@ const lexer = moo.compile({
   number:     /[0-9]+/,
   sqstring:   /'.*?'/,
   dqstring:   /".*?"/,
-  keywords:   ["else", "end", "enum", "false", "if", "not", "query", "return", "true"],
+  keywords:   ["and", "any", "bool", "else", "end", "false", "function", "if", "not", "number", "or", "return", "string", "true", "xor"],
 
   word:       { match: /[a-zA-Z][a-zA-Z0-9_]*/, },
 
@@ -51,6 +51,7 @@ stmt -> assignment {% id %}
       | call {% id %}
       | function_def {% id %}
       | if_stmt {% id %}
+      | return_stmt {% id %}
 
 assignment -> name _ assignop _ expr {% ([name,,op,,expr]) => ({ _: 'assignment', name, op, expr }) %}
 assignop -> "=" {% val %}
@@ -60,15 +61,19 @@ assignop -> "=" {% val %}
           | "/=" {% val %}
           | "^=" {% val %}
 
-function_def -> "function" __ name "(" function_args ")" document __ "end" {% ([,,name,,args,,program]) => ({ _: 'function', name, args, program }) %}
+function_def -> "function" __ name "(" function_args ")" function_type_clause:? document __ "end" {% ([,,name,,args,,type,program]) => ({ _: 'function', name, args, type, program }) %}
+function_type_clause -> ":" _ vtype {% ([,,type]) => type %}
 
 function_args -> null {% () => [] %}
                | function_arg
                | function_args _ "," _ function_arg {% ([list,,,,value]) => list.concat([value]) %}
 
-function_arg -> vtype __ name {% ([type,,name]) => ({ _: 'arg', type, name }) %}
+function_arg -> name ":" _ vtype {% ([name,,,type]) => ({ _: 'arg', type, name }) %}
 
-if_stmt -> "if" __ expr __ "then" document __ "end" {% ([,,expr,,,positive]) => ({ _: 'if', expr, positive }) %}
+if_stmt -> "if" __ expr __ "then" document else_clause:? __ "end" {% ([,,expr,,,positive,negative]) => ({ _: 'if', expr, positive, negative }) %}
+else_clause -> __ "else" document {% ([,,clause]) => clause %}
+
+return_stmt -> "return" (__ expr {% ([,expr]) => expr %}):? {% ([,expr]) => ({ _: 'return', expr }) %}
 
 expr -> maths {% id %}
 

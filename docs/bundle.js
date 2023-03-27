@@ -321,6 +321,11 @@
     }
   };
 
+  // src/tools/assertUnreachable.ts
+  function assertUnreachable(x, message) {
+    throw new Error(message);
+  }
+
   // src/DScript/logic.ts
   function bool(value) {
     return { _: "bool", value };
@@ -361,6 +366,8 @@
         throw new Error(`Cannot negate a ${value._}`);
       case "not":
         return bool(!truthy(value.value));
+      default:
+        assertUnreachable(op, `unary operator ${op} not implemented`);
     }
   }
   function binary(op, left, right) {
@@ -408,6 +415,8 @@
         const rt = truthy(right.value);
         return bool(!(lt === rt));
       }
+      default:
+        assertUnreachable(op, `binary operator ${op} not implemented`);
     }
   }
   function convertToFunction(stmt) {
@@ -415,10 +424,17 @@
       _: "function",
       name: stmt.name.value,
       args: stmt.args,
+      type: stmt.type,
       value: stmt.program
     };
   }
-  function runInScope(scope, prg) {
+  function run(scope, prg) {
+    scope.exited = false;
+    scope.returned = void 0;
+    return runInScope(scope, prg, true);
+  }
+  function runInScope(scope, prg, checkReturnValue) {
+    var _a, _b, _c;
     for (const stmt of prg) {
       switch (stmt._) {
         case "assignment":
@@ -436,16 +452,32 @@
           break;
         case "if": {
           if (truthy(evaluate(scope, stmt.expr).value)) {
-            runInScope(scope, stmt.positive);
+            runInScope(scope, stmt.positive, false);
           } else if (stmt.negative) {
-            runInScope(scope, stmt.negative);
+            runInScope(scope, stmt.negative, false);
           }
           break;
         }
+        case "return": {
+          const returnValue = stmt.expr ? evaluate(scope, stmt.expr) : void 0;
+          if (isTypeMatch(scope.type, returnValue == null ? void 0 : returnValue._)) {
+            scope.exited = true;
+            scope.returned = returnValue;
+            return returnValue;
+          }
+          throw new Error(
+            `trying to return ${(_a = returnValue == null ? void 0 : returnValue._) != null ? _a : "void"} when '${scope.name}' requires ${(_b = scope.type) != null ? _b : "void"}`
+          );
+        }
         default:
-          throw new Error(`${stmt._} statements not implemented`);
+          assertUnreachable(stmt, "Not all statement types implemented");
       }
+      if (scope.exited)
+        break;
     }
+    if (checkReturnValue && !isTypeMatch(scope.type, (_c = scope.returned) == null ? void 0 : _c._))
+      throw new Error(`exited '${scope.name}' without returning ${scope.type}`);
+    return scope.returned;
   }
   function lookup(scope, name, canBeNew = false) {
     let found;
@@ -486,6 +518,8 @@
           throw new Error(`${expr.fn.value}() returned no value`);
         return value;
       }
+      default:
+        assertUnreachable(expr, "not all expression types implemented");
     }
   }
   function isTypeMatch(want, got) {
@@ -519,10 +553,15 @@
       const result = fn.value.call(void 0, ...args.map(unbox));
       return box(result);
     }
-    const scope = { env: /* @__PURE__ */ new Map(), parent };
+    const scope = {
+      parent,
+      name: `function ${fn.name}`,
+      env: /* @__PURE__ */ new Map(),
+      type: fn.type
+    };
     for (let i = 0; i < args.length; i++)
       scope.env.set(fn.args[i].name.value, args[i]);
-    runInScope(scope, fn.value);
+    return run(scope, fn.value);
   }
   var opMapping = {
     "+=": "+",
@@ -553,9 +592,10 @@
   var DScriptHost = class {
     constructor() {
       this.env = /* @__PURE__ */ new Map();
+      this.name = "<Host>";
     }
-    addNative(name, args, value) {
-      this.env.set(name, { _: "native", name, args, value });
+    addNative(name, args, type, value) {
+      this.env.set(name, { _: "native", name, args, type, value });
     }
   };
 
@@ -568,11 +608,13 @@
       this.addNative(
         "debug",
         ["any"],
+        void 0,
         (thing) => console.log("[debug]", thing)
       );
       this.addNative(
         "onTagEnter",
         ["string", "function"],
+        void 0,
         (tag, cb) => {
           this.onTagEnter.set(tag, cb);
         }
@@ -580,6 +622,7 @@
       this.addNative(
         "tileHasTag",
         ["number", "number", "string"],
+        "bool",
         (x, y, tag) => {
           const cell = this.g.getCell(x, y);
           return cell == null ? void 0 : cell.tags.includes(tag);
@@ -587,13 +630,13 @@
       );
     }
     run(program) {
-      runInScope(this, program);
+      return run(this, program);
     }
     runCallback(fn, ...args) {
       if (fn._ === "function")
-        callFunction(this, fn, args);
+        return callFunction(this, fn, args);
       else
-        fn.value.call(void 0, ...args);
+        return fn.value.call(void 0, ...args);
     }
     onEnter(newPos, oldPos) {
       const tile = this.g.getCell(newPos.x, newPos.y);
@@ -823,7 +866,7 @@
     number: /[0-9]+/,
     sqstring: /'.*?'/,
     dqstring: /".*?"/,
-    keywords: ["else", "end", "enum", "false", "if", "not", "query", "return", "true"],
+    keywords: ["and", "any", "bool", "else", "end", "false", "function", "if", "not", "number", "or", "return", "string", "true", "xor"],
     word: { match: /[a-zA-Z][a-zA-Z0-9_]*/ },
     colon: ":",
     comma: ",",
@@ -862,6 +905,7 @@
       { "name": "stmt", "symbols": ["call"], "postprocess": id },
       { "name": "stmt", "symbols": ["function_def"], "postprocess": id },
       { "name": "stmt", "symbols": ["if_stmt"], "postprocess": id },
+      { "name": "stmt", "symbols": ["return_stmt"], "postprocess": id },
       { "name": "assignment", "symbols": ["name", "_", "assignop", "_", "expr"], "postprocess": ([name, , op, , expr]) => ({ _: "assignment", name, op, expr }) },
       { "name": "assignop", "symbols": [{ "literal": "=" }], "postprocess": val },
       { "name": "assignop", "symbols": [{ "literal": "+=" }], "postprocess": val },
@@ -869,12 +913,22 @@
       { "name": "assignop", "symbols": [{ "literal": "*=" }], "postprocess": val },
       { "name": "assignop", "symbols": [{ "literal": "/=" }], "postprocess": val },
       { "name": "assignop", "symbols": [{ "literal": "^=" }], "postprocess": val },
-      { "name": "function_def", "symbols": [{ "literal": "function" }, "__", "name", { "literal": "(" }, "function_args", { "literal": ")" }, "document", "__", { "literal": "end" }], "postprocess": ([, , name, , args, , program]) => ({ _: "function", name, args, program }) },
+      { "name": "function_def$ebnf$1", "symbols": ["function_type_clause"], "postprocess": id },
+      { "name": "function_def$ebnf$1", "symbols": [], "postprocess": () => null },
+      { "name": "function_def", "symbols": [{ "literal": "function" }, "__", "name", { "literal": "(" }, "function_args", { "literal": ")" }, "function_def$ebnf$1", "document", "__", { "literal": "end" }], "postprocess": ([, , name, , args, , type, program]) => ({ _: "function", name, args, type, program }) },
+      { "name": "function_type_clause", "symbols": [{ "literal": ":" }, "_", "vtype"], "postprocess": ([, , type]) => type },
       { "name": "function_args", "symbols": [], "postprocess": () => [] },
       { "name": "function_args", "symbols": ["function_arg"] },
       { "name": "function_args", "symbols": ["function_args", "_", { "literal": "," }, "_", "function_arg"], "postprocess": ([list, , , , value]) => list.concat([value]) },
-      { "name": "function_arg", "symbols": ["vtype", "__", "name"], "postprocess": ([type, , name]) => ({ _: "arg", type, name }) },
-      { "name": "if_stmt", "symbols": [{ "literal": "if" }, "__", "expr", "__", { "literal": "then" }, "document", "__", { "literal": "end" }], "postprocess": ([, , expr, , , positive]) => ({ _: "if", expr, positive }) },
+      { "name": "function_arg", "symbols": ["name", { "literal": ":" }, "_", "vtype"], "postprocess": ([name, , , type]) => ({ _: "arg", type, name }) },
+      { "name": "if_stmt$ebnf$1", "symbols": ["else_clause"], "postprocess": id },
+      { "name": "if_stmt$ebnf$1", "symbols": [], "postprocess": () => null },
+      { "name": "if_stmt", "symbols": [{ "literal": "if" }, "__", "expr", "__", { "literal": "then" }, "document", "if_stmt$ebnf$1", "__", { "literal": "end" }], "postprocess": ([, , expr, , , positive, negative]) => ({ _: "if", expr, positive, negative }) },
+      { "name": "else_clause", "symbols": ["__", { "literal": "else" }, "document"], "postprocess": ([, , clause]) => clause },
+      { "name": "return_stmt$ebnf$1$subexpression$1", "symbols": ["__", "expr"], "postprocess": ([, expr]) => expr },
+      { "name": "return_stmt$ebnf$1", "symbols": ["return_stmt$ebnf$1$subexpression$1"], "postprocess": id },
+      { "name": "return_stmt$ebnf$1", "symbols": [], "postprocess": () => null },
+      { "name": "return_stmt", "symbols": [{ "literal": "return" }, "return_stmt$ebnf$1"], "postprocess": ([, expr]) => ({ _: "return", expr }) },
       { "name": "expr", "symbols": ["maths"], "postprocess": id },
       { "name": "maths", "symbols": ["logic"], "postprocess": id },
       { "name": "logic", "symbols": ["logic", "_", "logicop", "_", "boolean"], "postprocess": ([left, , op, , right]) => ({ _: "binary", left, op, right }) },
@@ -939,7 +993,7 @@
   // src/DScript/compiler.ts
   function compile(src) {
     const p = new import_nearley.Parser(import_nearley.Grammar.fromCompiled(grammar_default));
-    p.feed(src);
+    p.feed(src.trim());
     return p.finish();
   }
 
@@ -982,7 +1036,7 @@
   };
 
   // res/map.dscript
-  var map_default = "./map-SPHBDNOG.dscript";
+  var map_default = "./map-L6YAJIBP.dscript";
 
   // res/atlas/minma1.png
   var minma1_default = "./minma1-VI5UXWCY.png";
