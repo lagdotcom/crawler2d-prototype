@@ -10,7 +10,7 @@ function loadEngine(parent: HTMLElement) {
 
   const g = new Engine(canvas);
   requestAnimationFrame(() => canvas.focus());
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
   (window as any).g = g;
 
   const onResize = () => {
@@ -34,7 +34,7 @@ function loadEngine(parent: HTMLElement) {
   window.addEventListener("resize", onResize);
   onResize();
 
-  g.loadGCMap(mapJson, 0, 1);
+  void g.loadGCMap(mapJson, 0, 1);
 }
 
 window.addEventListener("load", () => loadEngine(document.body));

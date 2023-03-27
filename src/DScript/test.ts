@@ -33,7 +33,7 @@ host.addNative(
   (a: number, b: boolean, c: string, d: string, e: number) =>
     console.log("function called:", a, b, c, d, e)
 );
-host.addNative("debug", ["any"], undefined, (thing: any) =>
+host.addNative("debug", ["any"], undefined, (thing: unknown) =>
   console.log("[debug]", thing)
 );
 run(host, compiled);

@@ -8,7 +8,7 @@
     "dscript:test": "ts-node src/DScript/test.ts",
     "build": "node build.mjs",
     "watch": "node watch.mjs",
-    "lint": "eslint --fix src"
+    "lint": "eslint src"
   },
   "dependencies": {
     "nanoclone": "^1.0.1"

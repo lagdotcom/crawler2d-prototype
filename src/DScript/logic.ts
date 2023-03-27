@@ -13,8 +13,6 @@ import {
   UnaryOp,
 } from "./ast";
 
-import { assertUnreachable } from "../tools/assertUnreachable";
-
 export type LiteralType = Literal["_"];
 
 export interface NativeFunction {
@@ -22,7 +20,7 @@ export interface NativeFunction {
   name: string;
   args: FunctionArgType[];
   type?: FunctionArgType;
-  value: Function;
+  value: (...args: unknown[]) => unknown;
 }
 
 export interface DScriptFunction {
@@ -60,7 +58,7 @@ export function str(value: string): LiteralString {
   return { _: "string", value };
 }
 
-function box(value: any): Literal | undefined {
+function box(value: unknown): Literal | undefined {
   switch (typeof value) {
     case "undefined":
       return undefined;
@@ -93,9 +91,6 @@ function unary(op: UnaryOp, value: RuntimeValue): RuntimeValue {
 
     case "not":
       return bool(!truthy(value.value));
-
-    default:
-      assertUnreachable(op, `unary operator ${op} not implemented`);
   }
 }
 
@@ -154,9 +149,6 @@ function binary(
       const rt = truthy(right.value);
       return bool(!(lt === rt));
     }
-
-    default:
-      assertUnreachable(op, `binary operator ${op} not implemented`);
   }
 }
 
@@ -217,16 +209,15 @@ function runInScope(scope: Scope, prg: Program, checkReturnValue: boolean) {
           }' requires ${scope.type ?? "void"}`
         );
       }
-
-      default:
-        assertUnreachable(stmt, "Not all statement types implemented");
     }
 
     if (scope.exited) break;
   }
 
   if (checkReturnValue && !isTypeMatch(scope.type, scope.returned?._))
-    throw new Error(`exited '${scope.name}' without returning ${scope.type}`);
+    throw new Error(
+      `exited '${scope.name}' without returning ${scope.type ?? "void"}`
+    );
 
   return scope.returned;
 }
@@ -285,9 +276,6 @@ function evaluate(scope: Scope, expr: Expression): RuntimeValue {
       if (!value) throw new Error(`${expr.fn.value}() returned no value`);
       return value;
     }
-
-    default:
-      assertUnreachable(expr, "not all expression types implemented");
   }
 }
 

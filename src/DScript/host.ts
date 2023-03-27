@@ -14,7 +14,8 @@ export default class DScriptHost {
     name: string,
     args: FunctionArgType[],
     type: FunctionArgType | undefined,
-    value: Function
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    value: (...args: any[]) => unknown
   ) {
     this.env.set(name, { _: "native", name, args, type, value });
   }

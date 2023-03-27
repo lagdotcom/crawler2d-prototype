@@ -115,7 +115,7 @@ class GCMapConverter {
     return { atlas, cells, scripts, start, facing };
   }
 
-  getTexture(index: number = 0) {
+  getTexture(index = 0) {
     const texture = this.textures.get(index);
     if (typeof texture === "undefined")
       throw new Error(`Unknown texture for palette index ${index}`);
@@ -195,12 +195,12 @@ class GCMapConverter {
 
     lt.sides[ld] = {
       wall: main.wall ? texture : undefined,
-      decal: this.decals.get(`${main.decal},${texture}`),
+      decal: this.decals.get(`${main.decal ?? ""},${texture}`),
       solid: main.solid,
     };
     rt.sides[rd] = {
       wall: opposite.wall ? texture : undefined,
-      decal: this.decals.get(`${opposite.decal},${texture}`),
+      decal: this.decals.get(`${opposite.decal ?? ""},${texture}`),
       solid: opposite.solid,
     };
   }

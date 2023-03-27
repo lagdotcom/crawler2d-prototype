@@ -107,9 +107,6 @@ export default class DungeonRenderer {
         return [position.x - x, position.y - z];
       case Dir.W:
         return [position.x + z, position.y - x];
-
-      default:
-        throw new Error(`Invalid direction: ${facing}`);
     }
   }
 

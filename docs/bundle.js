@@ -257,8 +257,6 @@
           return [position.x - x, position.y - z];
         case Dir_default.W:
           return [position.x + z, position.y - x];
-        default:
-          throw new Error(`Invalid direction: ${facing}`);
       }
     }
     draw(result) {
@@ -321,11 +319,6 @@
     }
   };
 
-  // src/tools/assertUnreachable.ts
-  function assertUnreachable(x, message) {
-    throw new Error(message);
-  }
-
   // src/DScript/logic.ts
   function bool(value) {
     return { _: "bool", value };
@@ -366,8 +359,6 @@
         throw new Error(`Cannot negate a ${value._}`);
       case "not":
         return bool(!truthy(value.value));
-      default:
-        assertUnreachable(op, `unary operator ${op} not implemented`);
     }
   }
   function binary(op, left, right) {
@@ -415,8 +406,6 @@
         const rt = truthy(right.value);
         return bool(!(lt === rt));
       }
-      default:
-        assertUnreachable(op, `binary operator ${op} not implemented`);
     }
   }
   function convertToFunction(stmt) {
@@ -434,7 +423,7 @@
     return runInScope(scope, prg, true);
   }
   function runInScope(scope, prg, checkReturnValue) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     for (const stmt of prg) {
       switch (stmt._) {
         case "assignment":
@@ -469,14 +458,14 @@
             `trying to return ${(_a = returnValue == null ? void 0 : returnValue._) != null ? _a : "void"} when '${scope.name}' requires ${(_b = scope.type) != null ? _b : "void"}`
           );
         }
-        default:
-          assertUnreachable(stmt, "Not all statement types implemented");
       }
       if (scope.exited)
         break;
     }
     if (checkReturnValue && !isTypeMatch(scope.type, (_c = scope.returned) == null ? void 0 : _c._))
-      throw new Error(`exited '${scope.name}' without returning ${scope.type}`);
+      throw new Error(
+        `exited '${scope.name}' without returning ${(_d = scope.type) != null ? _d : "void"}`
+      );
     return scope.returned;
   }
   function lookup(scope, name, canBeNew = false) {
@@ -518,8 +507,6 @@
           throw new Error(`${expr.fn.value}() returned no value`);
         return value;
       }
-      default:
-        assertUnreachable(expr, "not all expression types implemented");
     }
   }
   function isTypeMatch(want, got) {
@@ -1046,17 +1033,17 @@
       }
     }
     setEdge(edge, index, lt, ld, rt, rd) {
-      var _a;
+      var _a, _b, _c;
       const { main, opposite } = (_a = EdgeDetails[edge]) != null ? _a : defaultEdge;
       const texture = this.getTexture(index);
       lt.sides[ld] = {
         wall: main.wall ? texture : void 0,
-        decal: this.decals.get(`${main.decal},${texture}`),
+        decal: this.decals.get(`${(_b = main.decal) != null ? _b : ""},${texture}`),
         solid: main.solid
       };
       rt.sides[rd] = {
         wall: opposite.wall ? texture : void 0,
-        decal: this.decals.get(`${opposite.decal},${texture}`),
+        decal: this.decals.get(`${(_c = opposite.decal) != null ? _c : ""},${texture}`),
         solid: opposite.solid
       };
     }
@@ -1360,7 +1347,7 @@
     };
     window.addEventListener("resize", onResize);
     onResize();
-    g.loadGCMap(map_default2, 0, 1);
+    void g.loadGCMap(map_default2, 0, 1);
   }
   window.addEventListener("load", () => loadEngine(document.body));
 })();

@@ -16,5 +16,5 @@ export default function parse(src: string): Program {
     }
     throw new Error("Ambiguous parse.");
   }
-  return result[0];
+  return result[0] as Program;
 }

@@ -19,7 +19,7 @@ export default class EngineScripting extends DScriptHost {
 
     this.onTagEnter = new Map();
 
-    this.addNative("debug", ["any"], undefined, (thing: any) =>
+    this.addNative("debug", ["any"], undefined, (thing: unknown) =>
       console.log("[debug]", thing)
     );
 
