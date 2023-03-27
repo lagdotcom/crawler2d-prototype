@@ -10,7 +10,14 @@ declare var word: any;
 declare var ws: any;
 declare var comment: any;
 
+const always = <T>(value: T) => () => value;
 const val = ([tok]: NearleyToken[]) => tok.value;
+
+const trace = <T>(name: string, fn: (...args: any[]) => T) => (...args: any[]) => {
+  const result = fn(...args);
+  console.log('(trace)', name, args, '=', result);
+  return result;
+}
 
 import moo from 'moo';
 
@@ -101,10 +108,9 @@ const grammar: Grammar = {
     {"name": "function_def$ebnf$1", "symbols": [], "postprocess": () => null},
     {"name": "function_def", "symbols": [{"literal":"function"}, "__", "name", {"literal":"("}, "function_args", {"literal":")"}, "function_def$ebnf$1", "document", "__", {"literal":"end"}], "postprocess": ([,,name,,args,,type,program]) => ({ _: 'function', name, args, type, program })},
     {"name": "function_type_clause", "symbols": [{"literal":":"}, "_", "vtype"], "postprocess": ([,,type]) => type},
-    {"name": "function_args", "symbols": [], "postprocess": () => []},
-    {"name": "function_args", "symbols": ["function_arg"]},
-    {"name": "function_args", "symbols": ["function_args", "_", {"literal":","}, "_", "function_arg"], "postprocess": ([list,,,,value]) => list.concat([value])},
-    {"name": "function_arg", "symbols": ["name", {"literal":":"}, "_", "vtype"], "postprocess": ([name,,,type]) => ({ _: 'arg', type, name })},
+    {"name": "function_args", "symbols": [], "postprocess": always([])},
+    {"name": "function_args", "symbols": ["name_with_type"]},
+    {"name": "function_args", "symbols": ["function_args", "_", {"literal":","}, "_", "name_with_type"], "postprocess": ([list,,,,value]) => list.concat([value])},
     {"name": "if_stmt$ebnf$1", "symbols": ["else_clause"], "postprocess": id},
     {"name": "if_stmt$ebnf$1", "symbols": [], "postprocess": () => null},
     {"name": "if_stmt", "symbols": [{"literal":"if"}, "__", "expr", "__", {"literal":"then"}, "document", "if_stmt$ebnf$1", "__", {"literal":"end"}], "postprocess": ([,,expr,,,positive,negative]) => ({ _: 'if', expr, positive, negative })},
@@ -148,27 +154,28 @@ const grammar: Grammar = {
     {"name": "value", "symbols": ["name"], "postprocess": id},
     {"name": "value", "symbols": ["call"], "postprocess": id},
     {"name": "call", "symbols": ["name", {"literal":"("}, "call_args", {"literal":")"}], "postprocess": ([fn,,args]) => ({ _:'call', fn, args })},
-    {"name": "call_args", "symbols": [], "postprocess": () => []},
+    {"name": "call_args", "symbols": [], "postprocess": always([])},
     {"name": "call_args", "symbols": ["expr"]},
     {"name": "call_args", "symbols": ["call_args", "_", {"literal":","}, "_", "expr"], "postprocess": ([list,,,,value]) => list.concat([value])},
     {"name": "literal_number", "symbols": [(lexer.has("number") ? {type: "number"} : number)], "postprocess": ([tok]) => ({ _: 'number', value: Number(tok.value) })},
     {"name": "literal_number", "symbols": [(lexer.has("number") ? {type: "number"} : number), {"literal":"."}, (lexer.has("number") ? {type: "number"} : number)], "postprocess": ([whole,,frac]) => ({ _: 'number', value: Number(whole.value + '.' + frac.value)})},
-    {"name": "literal_boolean", "symbols": [{"literal":"true"}], "postprocess": () => ({ _: 'bool', value: true })},
-    {"name": "literal_boolean", "symbols": [{"literal":"false"}], "postprocess": () => ({ _: 'bool', value: false })},
+    {"name": "literal_boolean", "symbols": [{"literal":"true"}], "postprocess": always({ _: 'bool', value: true })},
+    {"name": "literal_boolean", "symbols": [{"literal":"false"}], "postprocess": always({ _: 'bool', value: false })},
     {"name": "literal_string", "symbols": [(lexer.has("sqstring") ? {type: "sqstring"} : sqstring)], "postprocess": ([tok]) => ({ _: 'string', value: tok.value.slice(1, -1) })},
     {"name": "literal_string", "symbols": [(lexer.has("dqstring") ? {type: "dqstring"} : dqstring)], "postprocess": ([tok]) => ({ _: 'string', value: tok.value.slice(1, -1) })},
+    {"name": "name_with_type", "symbols": ["name", {"literal":":"}, "_", "vtype"], "postprocess": ([name,,,type]) => ({ _: 'arg', type, name })},
     {"name": "vtype", "symbols": [{"literal":"any"}], "postprocess": val},
     {"name": "vtype", "symbols": [{"literal":"bool"}], "postprocess": val},
     {"name": "vtype", "symbols": [{"literal":"function"}], "postprocess": val},
     {"name": "vtype", "symbols": [{"literal":"number"}], "postprocess": val},
     {"name": "vtype", "symbols": [{"literal":"string"}], "postprocess": val},
     {"name": "name", "symbols": [(lexer.has("word") ? {type: "word"} : word)], "postprocess": ([tok]) => ({ _: 'id', value: tok.value })},
-    {"name": "_", "symbols": ["ws"], "postprocess": () => null},
-    {"name": "_", "symbols": ["comment"], "postprocess": () => null},
-    {"name": "_", "symbols": [], "postprocess": () => null},
-    {"name": "__", "symbols": ["ws"], "postprocess": () => null},
-    {"name": "ws", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws)], "postprocess": () => null},
-    {"name": "comment", "symbols": ["_", (lexer.has("comment") ? {type: "comment"} : comment), "_"], "postprocess": () => null}
+    {"name": "_", "symbols": ["ws"], "postprocess": always(null)},
+    {"name": "_", "symbols": ["comment"], "postprocess": always(null)},
+    {"name": "_", "symbols": [], "postprocess": always(null)},
+    {"name": "__", "symbols": ["ws"], "postprocess": always(null)},
+    {"name": "ws", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws)], "postprocess": always(null)},
+    {"name": "comment", "symbols": ["_", (lexer.has("comment") ? {type: "comment"} : comment), "_"], "postprocess": always(null)}
   ],
   ParserStart: "document",
 };

@@ -1,13 +1,13 @@
 import DScriptHost from "./host";
-import compile from "./compiler";
+import parse from "./parser";
 import { run } from "./logic";
 
-const compiled = compile(`x = 3
+const compiled = parse(`x = 3
 y  =    5.5-x z=6/x yo=z == x   z*= 3
 greeting = "Hi!" other = 'Yo' well = not yo
 itIsAFunction(x, yo,greeting,true,-z)
 
-function something(a: number, cb: function): number
+function something(a: number, b: number, cb: function): number
   amazing = a ^ 3
   cb(amazing)
   if amazing > 10 then
@@ -17,7 +17,7 @@ function something(a: number, cb: function): number
   end
   return amazing
 end
-something(4, debug)
+something(4, z, debug)
 
 function early()
   if x > 3 then return end
@@ -36,5 +36,5 @@ host.addNative(
 host.addNative("debug", ["any"], undefined, (thing: any) =>
   console.log("[debug]", thing)
 );
-run(host, compiled[0]);
+run(host, compiled);
 console.log(host.env);

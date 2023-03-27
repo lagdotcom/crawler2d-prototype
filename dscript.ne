@@ -1,5 +1,12 @@
 @{%
+const always = <T>(value: T) => () => value;
 const val = ([tok]: NearleyToken[]) => tok.value;
+
+const trace = <T>(name: string, fn: (...args: any[]) => T) => (...args: any[]) => {
+  const result = fn(...args);
+  console.log('(trace)', name, args, '=', result);
+  return result;
+}
 
 import moo from 'moo';
 
@@ -64,11 +71,9 @@ assignop -> "=" {% val %}
 function_def -> "function" __ name "(" function_args ")" function_type_clause:? document __ "end" {% ([,,name,,args,,type,program]) => ({ _: 'function', name, args, type, program }) %}
 function_type_clause -> ":" _ vtype {% ([,,type]) => type %}
 
-function_args -> null {% () => [] %}
-               | function_arg
-               | function_args _ "," _ function_arg {% ([list,,,,value]) => list.concat([value]) %}
-
-function_arg -> name ":" _ vtype {% ([name,,,type]) => ({ _: 'arg', type, name }) %}
+function_args -> null {% always([]) %}
+               | name_with_type
+               | function_args _ "," _ name_with_type {% ([list,,,,value]) => list.concat([value]) %}
 
 if_stmt -> "if" __ expr __ "then" document else_clause:? __ "end" {% ([,,expr,,,positive,negative]) => ({ _: 'if', expr, positive, negative }) %}
 else_clause -> __ "else" document {% ([,,clause]) => clause %}
@@ -115,18 +120,20 @@ value -> literal_number {% id %}
 
 call -> name "(" call_args ")" {% ([fn,,args]) => ({ _:'call', fn, args }) %}
 
-call_args -> null {% () => [] %}
+call_args -> null {% always([]) %}
            | expr
            | call_args _ "," _ expr {% ([list,,,,value]) => list.concat([value]) %}
 
 literal_number -> %number {% ([tok]) => ({ _: 'number', value: Number(tok.value) }) %}
                 | %number "." %number {% ([whole,,frac]) => ({ _: 'number', value: Number(whole.value + '.' + frac.value)}) %}
 
-literal_boolean -> "true" {% () => ({ _: 'bool', value: true }) %}
-                 | "false" {% () => ({ _: 'bool', value: false }) %}
+literal_boolean -> "true" {% always({ _: 'bool', value: true }) %}
+                 | "false" {% always({ _: 'bool', value: false }) %}
 
 literal_string -> %sqstring {% ([tok]) => ({ _: 'string', value: tok.value.slice(1, -1) }) %}
                 | %dqstring {% ([tok]) => ({ _: 'string', value: tok.value.slice(1, -1) }) %}
+
+name_with_type -> name ":" _ vtype {% ([name,,,type]) => ({ _: 'arg', type, name }) %}
 
 vtype -> "any" {% val %}
        | "bool" {% val %}
@@ -136,10 +143,10 @@ vtype -> "any" {% val %}
 
 name -> %word {% ([tok]) => ({ _: 'id', value: tok.value }) %}
 
-_  -> ws {% () => null %}
-    | comment {% () => null %}
-    | null {% () => null %}
-__ -> ws {% () => null %}
+_  -> ws {% always(null) %}
+    | comment {% always(null) %}
+    | null {% always(null) %}
+__ -> ws {% always(null) %}
 
-ws -> %ws {% () => null %}
-comment -> _ %comment _ {% () => null %}
+ws -> %ws {% always(null) %}
+comment -> _ %comment _ {% always(null) %}
